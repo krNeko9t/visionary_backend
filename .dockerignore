@@ -1,0 +1,12 @@
+.git
+.cursor
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+data
+client-demo/node_modules
+client-demo/dist
+agent-transcripts

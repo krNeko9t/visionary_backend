@@ -1,0 +1,34 @@
+services:
+  task-server:
+    build:
+      context: .
+      dockerfile: docker/task-server/Dockerfile
+    image: visionary-task-server:local
+    container_name: visionary-task-server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./visionary_tasks:/workspace/visionary_tasks
+    gpus: all
+
+  web-demo:
+    image: node:20-alpine
+    container_name: visionary-web-demo
+    working_dir: /app
+    command: ["sh", "-c", "npm install && npm run dev"]
+    ports:
+      - "5173:5173"
+    environment:
+      API_BASE_URL: http://localhost:8000
+    volumes:
+      - ./client-demo:/app
+
+  colmap-worker:
+    build:
+      context: .
+      dockerfile: docker/colmap-worker/Dockerfile
+    image: visionary-colmap-worker:local
+    profiles:
+      - tools

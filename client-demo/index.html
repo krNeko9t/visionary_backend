@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Visionary MVP Demo</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 24px auto;
+        padding: 0 16px;
+        line-height: 1.5;
+      }
+      .panel {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+      button {
+        cursor: pointer;
+        padding: 8px 14px;
+      }
+      pre {
+        background: #f6f8fa;
+        padding: 12px;
+        border-radius: 6px;
+        overflow-x: auto;
+      }
+      .hint {
+        color: #555;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Visionary MVP Demo</h1>
+    <div class="panel">
+      <h3>1) 选择图片并创建任务</h3>
+      <p>
+        <label>选择图片：</label>
+        <input id="fileInput" type="file" multiple accept="image/*" />
+      </p>
+      <p>
+        <label>选择目录：</label>
+        <input id="dirInput" type="file" webkitdirectory directory multiple />
+      </p>
+      <p class="hint">目录上传会展开为多个文件并一起提交到同一个任务。</p>
+      <button id="uploadBtn">上传并开始重建</button>
+    </div>
+
+    <div class="panel">
+      <h3>2) 任务状态</h3>
+      <p>当前 job_id: <strong id="jobId">-</strong></p>
+      <p>状态: <strong id="status">-</strong></p>
+      <p>说明: <strong id="message">-</strong></p>
+      <p>进度: <strong id="progress">0%</strong></p>
+      <p>
+        <button id="download3dgsBtn" disabled>下载 3DGS PLY</button>
+        <button id="downloadMeshBtn" disabled>下载 Mesh PLY</button>
+      </p>
+    </div>
+
+    <div class="panel">
+      <h3>3) 调试信息</h3>
+      <pre id="debugOutput">{}</pre>
+    </div>
+
+    <script type="module" src="/main.js"></script>
+  </body>
+  </html>

@@ -32,3 +32,21 @@ services:
     image: visionary-colmap-worker:local
     profiles:
       - tools
+
+  langsplat-worker:
+    build:
+      context: ./docker_workers/LangSplatV2
+      dockerfile: Dockerfile
+    image: langsplatv2:pt241
+    profiles:
+      - tools
+
+  # GaussianWrapping Dockerfile 使用 RUN --mount=type=cache，需 BuildKit。
+  # Docker Desktop 默认已开启；若 build 失败，先执行：$env:DOCKER_BUILDKIT=1
+  gaussian-wrapping-worker:
+    build:
+      context: ./docker_workers/GaussianWrapping
+      dockerfile: Dockerfile
+    image: gaussian-wrapping:latest
+    profiles:
+      - tools

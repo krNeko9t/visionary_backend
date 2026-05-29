@@ -1,0 +1,30 @@
+# 减小 build context，避免无关文件变动导致 COPY 层失效
+.git
+.github
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.mypy_cache
+**/*.egg-info
+**/.ipynb_checkpoints
+
+# 文档与本地配置（运行时不需要）
+*.md
+LICENSE.md
+assets/
+
+# Docker 自身不参与 COPY 层 checksum（放这里可避免误打进 context）
+Dockerfile
+.dockerignore
+
+# 常见数据/输出目录（若存在于仓库旁或误放在根目录）
+data/
+outputs/
+output/
+wandb/
+*.ply
+*.ckpt
+
+# Windows / macOS
+Thumbs.db
+.DS_Store

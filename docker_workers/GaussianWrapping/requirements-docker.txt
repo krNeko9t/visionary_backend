@@ -1,0 +1,12 @@
+# Docker 专用 pip 依赖（PyTorch / torchvision / torchaudio 由基础镜像提供，勿在此重复固定版本）
+# 使用 opencv-python-headless 避免在精简镜像中拉取 GUI 相关库；功能上满足训练与脚本需求
+open3d==0.19.0
+trimesh==4.6.8
+scikit-image==0.24.0
+opencv-python-headless==4.11.0.86
+plyfile==1.1
+tqdm==4.67.1
+wandb
+einops
+scikit-learn
+dacite

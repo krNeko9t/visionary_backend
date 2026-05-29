@@ -3,3 +3,15 @@ node_modules/
 __pycache__/
 dist/
 data/
+
+# docker_workers vendored build sources — ignore local build/cache artifacts
+docker_workers/**/__pycache__/
+docker_workers/**/*.py[cod]
+docker_workers/**/.pytest_cache/
+docker_workers/**/.mypy_cache/
+docker_workers/**/.ipynb_checkpoints/
+docker_workers/**/build/
+docker_workers/**/*.so
+docker_workers/**/wandb/
+docker_workers/**/output/
+docker_workers/**/outputs/

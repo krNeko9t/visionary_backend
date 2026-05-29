@@ -1,0 +1,23 @@
+# LangSplatV2 — pip 依赖（用于 Docker / 本地 venv，不使用 conda）
+#
+# 说明：
+# - PyTorch / torchvision / torchaudio 由 Docker 基础镜像提供，请勿在此文件中再次安装，
+#   以免覆盖 CUDA 匹配的 wheel。
+# - open_clip 通过 Dockerfile 中以「--no-deps」安装，避免 pip 自动升级 torch。
+#   其所需的 timm / ftfy / regex 在下面显式列出。
+
+# --- OpenCLIP 的运行时依赖（配合 open-clip-torch --no-deps）
+timm>=0.9.0,<1.0.0
+ftfy>=6.1.0
+regex>=2022.0.0
+
+# --- 与 environment.yml 对齐的项目依赖（numpy 范围适配 PyTorch 2.x 官方镜像自带的 Python 3.10+）
+numpy>=1.22.0,<3.0.0
+plyfile==0.8.1
+opencv-python-headless>=4.5.0
+tensorboard>=2.11.0
+jaxtyping>=0.2.19
+matplotlib>=3.5.0
+scikit-learn>=1.0.0
+Pillow>=9.0.0
+tqdm>=4.64.0

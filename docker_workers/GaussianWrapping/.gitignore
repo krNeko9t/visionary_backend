@@ -223,7 +223,7 @@ deprecated/
 *.md
 *.
 
-# Ignore symlinks
+# Ignore symlinks (leading / = only at repo root, not submodules/nvdiffrast)
 datasets
 benchmark_clean_code
-nvdiffrast
+/nvdiffrast

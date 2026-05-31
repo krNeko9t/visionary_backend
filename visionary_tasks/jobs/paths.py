@@ -50,6 +50,15 @@ class JobPaths:
     def gs_config_path(self) -> Path:
         return self.root / "config" / "3dgs.yaml"
 
+    def colmap_config_path(self) -> Path:
+        return self.root / "config" / "colmap.yaml"
+
+    def langsplat_config_path(self) -> Path:
+        return self.root / "config" / "langsplat.yaml"
+
+    def gaussian_wrapping_config_path(self) -> Path:
+        return self.root / "config" / "gaussian-wrapping.yaml"
+
     def gs_output_ply(self, settings: Settings, output_iteration: int) -> Path:
         return (
             self.output_dir(settings)
@@ -59,19 +68,27 @@ class JobPaths:
     def gs_checkpoint(self, settings: Settings, output_iteration: int) -> Path:
         return self.output_dir(settings) / f"chkpnt{output_iteration}.pth"
 
-    def langsplat_model_dir(self, settings: Settings) -> Path:
-        return self.root / settings.langsplat.model_relative
+    def langsplat_model_dir(self, model_relative: str) -> Path:
+        return self.root / model_relative
 
-    def wrapping_mesh_ply(self, settings: Settings) -> Path | None:
+    def wrapping_mesh_ply(
+        self,
+        settings: Settings,
+        mesh_ply_names: tuple[str, ...],
+    ) -> Path | None:
         return _first_existing(
             self.output_dir(settings) / name
-            for name in settings.wrapping.mesh_ply_names
+            for name in mesh_ply_names
         )
 
-    def wrapping_mesh_textured_ply(self, settings: Settings) -> Path | None:
+    def wrapping_mesh_textured_ply(
+        self,
+        settings: Settings,
+        mesh_textured_ply_names: tuple[str, ...],
+    ) -> Path | None:
         return _first_existing(
             self.output_dir(settings) / name
-            for name in settings.wrapping.mesh_textured_ply_names
+            for name in mesh_textured_ply_names
         )
 
     def ensure_dirs(self, settings: Settings) -> None:

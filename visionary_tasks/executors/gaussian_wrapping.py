@@ -4,6 +4,7 @@ import docker
 from docker.errors import DockerException
 from docker.types import DeviceRequest
 
+from ..config.loader import load_gaussian_wrapping_job_config
 from ..docker.mount import resolve_host_job_path
 from ..jobs.paths import JobPaths
 from ..jobs.stage_artifacts import persist_stage_artifact
@@ -19,6 +20,7 @@ def run(settings: Settings, paths: JobPaths) -> dict[str, str]:
     missing = missing_gaussian_wrapping_inputs(paths, settings)
     if missing:
         raise FileNotFoundError("; ".join(missing))
+    config = load_gaussian_wrapping_job_config(settings, paths)
     wrapping = settings.wrapping
 
     try:
@@ -28,7 +30,7 @@ def run(settings: Settings, paths: JobPaths) -> dict[str, str]:
 
     try:
         host_job_path = resolve_host_job_path(settings, paths.root, client)
-        cmd = wrapping.container_command("/job/colmap", "/job/output")
+        cmd = config.to_container_command("/job/colmap", "/job/output")
         volumes = {str(host_job_path): {"bind": "/job", "mode": "rw"}}
         result = client.containers.run(
             wrapping.worker_image,
@@ -48,12 +50,14 @@ def run(settings: Settings, paths: JobPaths) -> dict[str, str]:
     finally:
         client.close()
 
-    mesh_ply = paths.wrapping_mesh_ply(settings)
-    mesh_textured_ply = paths.wrapping_mesh_textured_ply(settings)
+    mesh_ply_names = tuple(config.outputs.mesh_ply_names)
+    mesh_textured_ply_names = tuple(config.outputs.mesh_textured_ply_names)
+    mesh_ply = paths.wrapping_mesh_ply(settings, mesh_ply_names)
+    mesh_textured_ply = paths.wrapping_mesh_textured_ply(settings, mesh_textured_ply_names)
     if mesh_ply is None and mesh_textured_ply is None:
         raise FileNotFoundError(
             "gaussian-wrapping 未生成 mesh 文件，"
-            f"已检查: {wrapping.mesh_ply_names}, {wrapping.mesh_textured_ply_names}"
+            f"已检查: {mesh_ply_names}, {mesh_textured_ply_names}"
         )
 
     payload: dict[str, str] = {}

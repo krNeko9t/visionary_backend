@@ -4,7 +4,7 @@ import docker
 from docker.errors import DockerException
 from docker.types import DeviceRequest
 
-from ..config.loader import load_gs_job_config
+from ..config.loader import load_gs_job_config, load_langsplat_job_config
 from ..docker.mount import resolve_host_job_path
 from ..jobs.paths import JobPaths
 from ..jobs.stage_artifacts import persist_stage_artifact
@@ -21,6 +21,7 @@ def run(settings: Settings, paths: JobPaths) -> dict[str, str]:
     missing = missing_langsplat_inputs(paths, settings)
     if missing:
         raise FileNotFoundError("; ".join(missing))
+    config = load_langsplat_job_config(settings, paths)
     langsplat = settings.langsplat
 
     try:
@@ -35,7 +36,7 @@ def run(settings: Settings, paths: JobPaths) -> dict[str, str]:
             volumes[langsplat.ckpts_host] = {"bind": "/workspace/ckpts", "mode": "ro"}
         device_requests = [DeviceRequest(count=-1, capabilities=[["gpu"]])]
 
-        preprocess_cmd = langsplat.preprocess_command(f"{JOB_MOUNT}/colmap")
+        preprocess_cmd = config.to_preprocess_command(f"{JOB_MOUNT}/colmap")
         _run_container(
             client,
             langsplat.worker_image,
@@ -49,9 +50,9 @@ def run(settings: Settings, paths: JobPaths) -> dict[str, str]:
             settings,
             load_gs_job_config(settings, paths).output_iteration,
         )
-        train_cmd = langsplat.train_command(
+        train_cmd = config.to_train_command(
             source_path=f"{JOB_MOUNT}/colmap",
-            model_path=f"{JOB_MOUNT}/{langsplat.model_relative}",
+            model_path=f"{JOB_MOUNT}/{config.runtime.model_relative}",
             checkpoint_path=f"{JOB_MOUNT}/{checkpoint.relative_to(paths.root).as_posix()}",
         )
         _run_container(
@@ -65,7 +66,7 @@ def run(settings: Settings, paths: JobPaths) -> dict[str, str]:
     finally:
         client.close()
 
-    model_dir = paths.langsplat_model_dir(settings)
+    model_dir = paths.langsplat_model_dir(config.runtime.model_relative)
     if not model_dir.is_dir() or not any(model_dir.iterdir()):
         raise FileNotFoundError(
             f"langsplat 未生成模型目录或目录为空: {model_dir.relative_to(paths.root)}"

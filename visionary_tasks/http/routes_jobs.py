@@ -7,7 +7,7 @@ import yaml
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Response, UploadFile
 from fastapi.responses import FileResponse
 
-from ..config.loader import materialize_gs_config
+from ..config.loader import materialize_job_configs
 from ..jobs.models import JobRecord
 from ..jobs.paths import JobPaths
 from ..jobs.storage import read_record, save_upload_files, write_record
@@ -38,6 +38,9 @@ async def create_job(
     files: list[UploadFile] = File(...),
     enabled: str = Form(...),
     gs_config: UploadFile | None = File(None),
+    colmap_config: UploadFile | None = File(None),
+    langsplat_config: UploadFile | None = File(None),
+    gaussian_wrapping_config: UploadFile | None = File(None),
 ) -> CreateJobResponse:
     settings = get_settings()
     if not files:
@@ -56,18 +59,15 @@ async def create_job(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    gs_override: dict[str, Any] | None = None
-    if gs_config is not None and gs_config.filename:
-        try:
-            payload = yaml.safe_load(await gs_config.read())
-        except yaml.YAMLError as exc:
-            raise HTTPException(status_code=400, detail=f"gs_config YAML 解析失败: {exc}") from exc
-        if payload is None:
-            gs_override = {}
-        elif not isinstance(payload, dict):
-            raise HTTPException(status_code=400, detail="gs_config 根节点必须是对象")
-        else:
-            gs_override = payload
+    config_overrides = {
+        "3dgs": await _parse_yaml_upload(gs_config, "gs_config"),
+        "colmap": await _parse_yaml_upload(colmap_config, "colmap_config"),
+        "langsplat": await _parse_yaml_upload(langsplat_config, "langsplat_config"),
+        "gaussian-wrapping": await _parse_yaml_upload(
+            gaussian_wrapping_config,
+            "gaussian_wrapping_config",
+        ),
+    }
 
     job_id = uuid.uuid4().hex[:12]
     paths = JobPaths.from_settings(settings, job_id)
@@ -78,7 +78,7 @@ async def create_job(
         raise HTTPException(status_code=400, detail="未检测到有效文件名")
 
     try:
-        materialize_gs_config(settings, paths, override=gs_override)
+        materialize_job_configs(settings, paths, overrides=config_overrides)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -193,3 +193,23 @@ def _parse_enabled(raw_enabled: str) -> list[str]:
             raise ValueError(f"enabled[{key}] 必须是布尔值")
         normalized[key.strip()] = value
     return validate_enabled(normalized)
+
+
+async def _parse_yaml_upload(
+    upload: UploadFile | None,
+    field_name: str,
+) -> dict[str, Any] | None:
+    if upload is None or not upload.filename:
+        return None
+    try:
+        payload = yaml.safe_load(await upload.read())
+    except yaml.YAMLError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{field_name} YAML 解析失败: {exc}",
+        ) from exc
+    if payload is None:
+        return {}
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail=f"{field_name} 根节点必须是对象")
+    return payload

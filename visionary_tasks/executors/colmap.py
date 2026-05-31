@@ -6,6 +6,7 @@ import docker
 from docker.errors import DockerException
 from docker.types import DeviceRequest
 
+from ..config.loader import load_colmap_job_config
 from ..docker.mount import resolve_host_job_path
 from ..jobs.paths import JobPaths
 from ..jobs.stage_artifacts import COLMAP_OUTPUT_NAMES, persist_stage_artifact
@@ -19,6 +20,7 @@ def run(settings: Settings, paths: JobPaths) -> dict[str, str]:
     missing = missing_colmap_inputs(paths, settings)
     if missing:
         raise FileNotFoundError(missing[0])
+    config = load_colmap_job_config(settings, paths)
     try:
         client = docker.from_env()
     except DockerException as exc:
@@ -26,12 +28,7 @@ def run(settings: Settings, paths: JobPaths) -> dict[str, str]:
 
     try:
         host_job_path = resolve_host_job_path(settings, paths.root, client)
-        cmd = [
-            "--source_path",
-            "/job",
-            "--camera",
-            settings.colmap_camera_model,
-        ]
+        cmd = config.to_convert_command("/job")
         volumes = {
             str(host_job_path): {"bind": "/job", "mode": "rw"},
         }

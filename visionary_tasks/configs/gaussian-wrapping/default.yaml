@@ -1,0 +1,33 @@
+# GaussianWrapping：extract_and_texture_from_native_3dgs.py
+# source_path / model_path 由 executor 注入（/job/colmap、/job/output）
+# iteration 应对齐 3DGS 的 training.output_iteration
+
+extraction:
+  iteration: 500
+  rasterizer: ours
+  sdf_mode: ours
+  n_pivots: 2
+  n_binary_steps: 10
+  isosurface_value: 0.0
+  dtype: int32
+  use_valid_mask: true
+  postprocess: true
+  filter_large_edges: true
+  mesh: null
+  resolution: -1
+
+texture:
+  texture_n_iter: 1000
+  texture_lr: 0.0025
+  texture_lambda_dssim: 0.2
+  texture_sh_degree: 0
+
+decimation:
+  apply_decimation: false
+  decimate_ratio: 0.3
+
+outputs:
+  mesh_ply_names:
+    - mesh_ours_2pivots_post.ply
+  mesh_textured_ply_names:
+    - mesh_ours_2pivots_post_texture_refined_999.ply

@@ -4,6 +4,8 @@ import os
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from .cli import format_cli_arg
+
 MODEL_SHORTHAND = {
     "resolution": "-r",
     "white_background": "-w",
@@ -158,41 +160,17 @@ class GsJobConfig:
         for key, value in asdict(self.model).items():
             if key in MODEL_SKIP:
                 continue
-            command.extend(_format_cli_arg(key, value, shorthand=MODEL_SHORTHAND.get(key)))
+            command.extend(format_cli_arg(key, value, shorthand=MODEL_SHORTHAND.get(key)))
 
         for key, value in asdict(self.optimization).items():
-            command.extend(_format_cli_arg(key, value))
+            command.extend(format_cli_arg(key, value))
 
         for key, value in asdict(self.pipeline).items():
-            command.extend(_format_cli_arg(key, value))
+            command.extend(format_cli_arg(key, value))
 
         for key, value in asdict(self.training).items():
             if key in TRAINING_SKIP:
                 continue
-            command.extend(_format_cli_arg(key, value))
+            command.extend(format_cli_arg(key, value))
 
         return command
-
-
-def _format_cli_arg(
-    key: str,
-    value: Any,
-    shorthand: str | None = None,
-) -> list[str]:
-    flag = shorthand or f"--{key}"
-
-    if value is None:
-        return []
-
-    if isinstance(value, bool):
-        return [flag] if value else []
-
-    if isinstance(value, list):
-        if not value:
-            return []
-        return [flag, *[str(item) for item in value]]
-
-    if isinstance(value, str) and not value:
-        return []
-
-    return [flag, str(value)]

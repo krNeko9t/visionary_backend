@@ -3,14 +3,18 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from .gaussian_wrapping import GaussianWrappingSettings
+from .colmap import ColmapJobConfig
+from .gaussian_wrapping import GaussianWrappingJobConfig, GaussianWrappingSettings
 from .gs import GsJobConfig
-from .langsplat import LangSplatSettings
+from .langsplat import LangSplatJobConfig, LangSplatSettings
 
 __all__ = [
     "Settings",
+    "ColmapJobConfig",
+    "GaussianWrappingJobConfig",
     "GaussianWrappingSettings",
     "GsJobConfig",
+    "LangSplatJobConfig",
     "LangSplatSettings",
     "get_settings",
 ]
@@ -21,7 +25,6 @@ class Settings:
     data_root: Path
     jobs_root: Path
     colmap_worker_image: str
-    colmap_camera_model: str
     gs_iterations: int
     gs_save_iteration: int
     gs_output_relative: str
@@ -41,7 +44,6 @@ def get_settings() -> Settings:
         data_root=data_root,
         jobs_root=jobs_root,
         colmap_worker_image=os.getenv("COLMAP_WORKER_IMAGE", "visionary-colmap-worker:local"),
-        colmap_camera_model=os.getenv("COLMAP_CAMERA_MODEL", "OPENCV"),
         gs_iterations=int(os.getenv("GS_ITERATIONS", "30000")),
         gs_save_iteration=gs_save_iteration,
         gs_output_relative=os.getenv("GS_OUTPUT_RELATIVE", "output"),
@@ -50,6 +52,6 @@ def get_settings() -> Settings:
             "TASK_SERVER_CONTAINER_NAME",
             "visionary-task-server",
         ),
-        wrapping=GaussianWrappingSettings.from_env(gs_save_iteration),
+        wrapping=GaussianWrappingSettings.from_env(),
         langsplat=LangSplatSettings.from_env(),
     )

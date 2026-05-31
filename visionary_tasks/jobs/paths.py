@@ -47,15 +47,17 @@ class JobPaths:
     def artifact(self, relative: str) -> Path:
         return self.root / relative
 
-    def gs_output_ply(self, settings: Settings) -> Path:
-        iteration = settings.gs_save_iteration
+    def gs_config_path(self) -> Path:
+        return self.root / "config" / "3dgs.yaml"
+
+    def gs_output_ply(self, settings: Settings, output_iteration: int) -> Path:
         return (
             self.output_dir(settings)
-            / f"point_cloud/iteration_{iteration}/point_cloud.ply"
+            / f"point_cloud/iteration_{output_iteration}/point_cloud.ply"
         )
 
-    def gs_checkpoint(self, settings: Settings) -> Path:
-        return self.output_dir(settings) / f"chkpnt{settings.gs_save_iteration}.pth"
+    def gs_checkpoint(self, settings: Settings, output_iteration: int) -> Path:
+        return self.output_dir(settings) / f"chkpnt{output_iteration}.pth"
 
     def langsplat_model_dir(self, settings: Settings) -> Path:
         return self.root / settings.langsplat.model_relative
@@ -77,3 +79,4 @@ class JobPaths:
         self.colmap_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir(settings).mkdir(parents=True, exist_ok=True)
         self.artifacts_dir.mkdir(parents=True, exist_ok=True)
+        (self.root / "config").mkdir(parents=True, exist_ok=True)

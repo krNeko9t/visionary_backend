@@ -4,11 +4,13 @@ from functools import lru_cache
 from pathlib import Path
 
 from .gaussian_wrapping import GaussianWrappingSettings
+from .gs import GsJobConfig
 from .langsplat import LangSplatSettings
 
 __all__ = [
     "Settings",
     "GaussianWrappingSettings",
+    "GsJobConfig",
     "LangSplatSettings",
     "get_settings",
 ]

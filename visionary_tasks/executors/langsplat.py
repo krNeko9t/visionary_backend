@@ -4,6 +4,7 @@ import docker
 from docker.errors import DockerException
 from docker.types import DeviceRequest
 
+from ..config.loader import load_gs_job_config
 from ..docker.mount import resolve_host_job_path
 from ..jobs.paths import JobPaths
 from ..jobs.stage_artifacts import persist_stage_artifact
@@ -44,7 +45,10 @@ def run(settings: Settings, paths: JobPaths) -> dict[str, str]:
             "langsplat preprocess",
         )
 
-        checkpoint = paths.gs_checkpoint(settings)
+        checkpoint = paths.gs_checkpoint(
+            settings,
+            load_gs_job_config(settings, paths).output_iteration,
+        )
         train_cmd = langsplat.train_command(
             source_path=f"{JOB_MOUNT}/colmap",
             model_path=f"{JOB_MOUNT}/{langsplat.model_relative}",

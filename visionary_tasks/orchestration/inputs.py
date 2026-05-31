@@ -1,3 +1,4 @@
+from ..config.loader import load_gs_job_config
 from ..jobs.paths import JobPaths
 from ..settings import Settings
 
@@ -28,7 +29,8 @@ def missing_langsplat_inputs(paths: JobPaths, settings: Settings) -> list[str]:
     missing: list[str] = []
     if not (paths.colmap_dir / "sparse").exists():
         missing.append("缺少 COLMAP 稀疏重建: colmap/sparse")
-    checkpoint = paths.gs_checkpoint(settings)
+    config = load_gs_job_config(settings, paths)
+    checkpoint = paths.gs_checkpoint(settings, config.output_iteration)
     if not checkpoint.exists():
         missing.append(
             f"缺少 3DGS checkpoint: {checkpoint.relative_to(paths.root)}"
@@ -40,7 +42,8 @@ def missing_gaussian_wrapping_inputs(paths: JobPaths, settings: Settings) -> lis
     missing: list[str] = []
     if not (paths.colmap_dir / "sparse").exists():
         missing.append("缺少 COLMAP 稀疏重建: colmap/sparse")
-    gs_ply = paths.gs_output_ply(settings)
+    config = load_gs_job_config(settings, paths)
+    gs_ply = paths.gs_output_ply(settings, config.output_iteration)
     if not gs_ply.exists():
         missing.append(f"缺少 3DGS 点云: {gs_ply.relative_to(paths.root)}")
     return missing

@@ -11,6 +11,17 @@
 - Windows/macOS/Linux + Docker Desktop
 - NVIDIA GPU（建议；相关 worker 依赖 CUDA）
 - Git
+- 如果要运行语义识别算法，需要下载神经网络权重：
+
+```powershell
+# 创建目录
+mkdir ckpts -Force
+
+# 下载（推荐）
+Invoke-WebRequest -Uri "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth" -OutFile "ckpts\sam_vit_h_4b8939.pth"
+# 或用curl
+curl -L -o ckpts\sam_vit_h_4b8939.pth "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth"
+```
 
 ### 2) 拉代码
 

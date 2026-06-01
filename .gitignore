@@ -3,6 +3,7 @@ node_modules/
 __pycache__/
 dist/
 data/
+ckpts/
 
 # docker_workers vendored build sources — ignore local build/cache artifacts
 docker_workers/**/__pycache__/

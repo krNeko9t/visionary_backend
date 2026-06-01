@@ -34,9 +34,9 @@ docker compose up -d web-demo
 
 访问：`http://localhost:5173`
 
-### 5) （建议）提前构建工具镜像
+### 5)  **(建议)** 提前构建工具镜像
 
-如果要跑完整流水线（尤其 `langsplat` 和 `gaussian-wrapping`），建议先构建 tools profile：
+如果要跑完整流水线（尤其 `langsplat` 和 `gaussian-wrapping`），建议提前构建 tools profile，由于镜像体积很大，整个过程可能花费若干小时：
 
 ```powershell
 docker compose --profile tools build colmap-worker langsplat-worker gaussian-wrapping-worker

@@ -1,28 +1,11 @@
 from __future__ import annotations
 
-import os
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from .cli import format_cli_arg, format_negatable_bool
 
 SCRIPT = "gaussian_wrapping/scripts/extract_and_texture_from_native_3dgs.py"
-
-
-def _parse_csv_names(raw: str, default: tuple[str, ...]) -> tuple[str, ...]:
-    names = tuple(item.strip() for item in raw.split(",") if item.strip())
-    return names or default
-
-
-@dataclass(frozen=True)
-class GaussianWrappingSettings:
-    worker_image: str
-
-    @classmethod
-    def from_env(cls) -> "GaussianWrappingSettings":
-        return cls(
-            worker_image=os.getenv("WRAPPING_WORKER_IMAGE", "gaussian-wrapping"),
-        )
 
 
 @dataclass
@@ -65,6 +48,7 @@ class GaussianWrappingOutputsConfig:
 
 @dataclass
 class GaussianWrappingJobConfig:
+    worker_image: str
     extraction: GaussianWrappingExtractionConfig
     texture: GaussianWrappingTextureConfig
     decimation: GaussianWrappingDecimationConfig
@@ -74,6 +58,7 @@ class GaussianWrappingJobConfig:
     def from_merged_dict(cls, payload: dict[str, Any]) -> "GaussianWrappingJobConfig":
         outputs_payload = dict(payload.get("outputs") or {})
         return cls(
+            worker_image=str(payload.get("worker_image", "gaussian-wrapping:latest")),
             extraction=GaussianWrappingExtractionConfig(**dict(payload.get("extraction") or {})),
             texture=GaussianWrappingTextureConfig(**dict(payload.get("texture") or {})),
             decimation=GaussianWrappingDecimationConfig(**dict(payload.get("decimation") or {})),
@@ -90,29 +75,9 @@ class GaussianWrappingJobConfig:
         self.extraction.iteration = output_iteration
         return self
 
-    def apply_env_overrides(self) -> "GaussianWrappingJobConfig":
-        if os.getenv("WRAPPING_PIVOTS") is not None:
-            self.extraction.n_pivots = int(os.getenv("WRAPPING_PIVOTS", "2"))
-        if os.getenv("WRAPPING_ITERATION") is not None:
-            self.extraction.iteration = int(os.getenv("WRAPPING_ITERATION", "500"))
-        if os.getenv("WRAPPING_SDF_MODE") is not None:
-            self.extraction.sdf_mode = os.getenv("WRAPPING_SDF_MODE", "ours")
-        if os.getenv("WRAPPING_RASTERIZER") is not None:
-            self.extraction.rasterizer = os.getenv("WRAPPING_RASTERIZER", "ours")
-        mesh_names = os.getenv("WRAPPING_MESH_PLY_NAMES")
-        if mesh_names is not None:
-            self.outputs.mesh_ply_names = list(
-                _parse_csv_names(mesh_names, tuple(self.outputs.mesh_ply_names))
-            )
-        textured_names = os.getenv("WRAPPING_MESH_TEXTURED_PLY_NAMES")
-        if textured_names is not None:
-            self.outputs.mesh_textured_ply_names = list(
-                _parse_csv_names(textured_names, tuple(self.outputs.mesh_textured_ply_names))
-            )
-        return self
-
     def to_dict(self) -> dict[str, Any]:
         return {
+            "worker_image": self.worker_image,
             "extraction": asdict(self.extraction),
             "texture": asdict(self.texture),
             "decimation": asdict(self.decimation),

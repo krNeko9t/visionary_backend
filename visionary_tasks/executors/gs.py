@@ -16,14 +16,14 @@ def run(settings: Settings, paths: JobPaths) -> dict[str, str]:
     source_dir = paths.colmap_dir
     command = config.to_train_command(
         str(source_dir),
-        str(paths.output_dir(settings)),
+        str(paths.output_dir(config.output_relative)),
     )
     subprocess.run(
         command,
         cwd=settings.gs_repo_path,
         check=True,
     )
-    ply = paths.gs_output_ply(settings, config.output_iteration)
+    ply = paths.gs_output_ply(config.output_relative, config.output_iteration)
     if not ply.exists():
         raise FileNotFoundError(f"找不到 3DGS 输出文件: {ply}")
     return persist_stage_artifact(

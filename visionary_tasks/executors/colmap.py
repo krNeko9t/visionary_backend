@@ -33,7 +33,7 @@ def run(settings: Settings, paths: JobPaths) -> dict[str, str]:
             str(host_job_path): {"bind": "/job", "mode": "rw"},
         }
         result = client.containers.run(
-            settings.colmap_worker_image,
+            config.worker_image,
             command=cmd,
             volumes=volumes,
             device_requests=[DeviceRequest(count=-1, capabilities=[["gpu"]])],

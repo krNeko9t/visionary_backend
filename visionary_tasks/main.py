@@ -10,10 +10,10 @@ settings.jobs_root.mkdir(parents=True, exist_ok=True)
 app = FastAPI(title="Visionary Task Server")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=list(settings.cors.allow_origins),
+    allow_credentials=settings.cors.allow_credentials,
+    allow_methods=list(settings.cors.allow_methods),
+    allow_headers=list(settings.cors.allow_headers),
 )
 
 app.include_router(jobs_router)

@@ -60,7 +60,7 @@ def resolve_gs_config(
             merged = deep_merge(merged, load_yaml(job_config))
     if override:
         merged = deep_merge(merged, override)
-    return GsJobConfig.from_merged_dict(merged).apply_env_overrides()
+    return GsJobConfig.from_merged_dict(merged)
 
 
 def materialize_gs_config(
@@ -79,7 +79,7 @@ def load_gs_job_config(settings: Settings, paths: JobPaths) -> GsJobConfig:
     if not config_path.exists():
         return materialize_gs_config(settings, paths)
     merged = load_yaml(config_path)
-    return GsJobConfig.from_merged_dict(merged).apply_env_overrides()
+    return GsJobConfig.from_merged_dict(merged)
 
 
 def resolve_colmap_config(
@@ -88,7 +88,7 @@ def resolve_colmap_config(
     merged = load_yaml(DEFAULT_CONFIGS["colmap"])
     if override:
         merged = deep_merge(merged, override)
-    return ColmapJobConfig.from_merged_dict(merged).apply_env_overrides()
+    return ColmapJobConfig.from_merged_dict(merged)
 
 
 def materialize_colmap_config(
@@ -106,7 +106,7 @@ def load_colmap_job_config(settings: Settings, paths: JobPaths) -> ColmapJobConf
     if not config_path.exists():
         return materialize_colmap_config(paths)
     merged = load_yaml(config_path)
-    return ColmapJobConfig.from_merged_dict(merged).apply_env_overrides()
+    return ColmapJobConfig.from_merged_dict(merged)
 
 
 def resolve_langsplat_config(
@@ -115,7 +115,7 @@ def resolve_langsplat_config(
     merged = load_yaml(DEFAULT_CONFIGS["langsplat"])
     if override:
         merged = deep_merge(merged, override)
-    return LangSplatJobConfig.from_merged_dict(merged).apply_env_overrides()
+    return LangSplatJobConfig.from_merged_dict(merged)
 
 
 def materialize_langsplat_config(
@@ -133,7 +133,7 @@ def load_langsplat_job_config(settings: Settings, paths: JobPaths) -> LangSplatJ
     if not config_path.exists():
         return materialize_langsplat_config(paths)
     merged = load_yaml(config_path)
-    return LangSplatJobConfig.from_merged_dict(merged).apply_env_overrides()
+    return LangSplatJobConfig.from_merged_dict(merged)
 
 
 def resolve_gaussian_wrapping_config(
@@ -146,7 +146,7 @@ def resolve_gaussian_wrapping_config(
     config = GaussianWrappingJobConfig.from_merged_dict(merged)
     if gs_output_iteration is not None:
         config.sync_gs_iteration(gs_output_iteration)
-    return config.apply_env_overrides()
+    return config
 
 
 def materialize_gaussian_wrapping_config(
@@ -180,14 +180,14 @@ def load_gaussian_wrapping_job_config(
     merged = load_yaml(config_path)
     config = GaussianWrappingJobConfig.from_merged_dict(merged)
     config.sync_gs_iteration(gs_output_iteration)
-    return config.apply_env_overrides()
+    return config
 
 
 def materialize_job_configs(
     settings: Settings,
     paths: JobPaths,
     overrides: dict[str, dict[str, Any] | None] | None = None,
-) -> None:
+) -> GsJobConfig:
     overrides = overrides or {}
     gs_config = materialize_gs_config(settings, paths, override=overrides.get("3dgs"))
     materialize_colmap_config(paths, override=overrides.get("colmap"))
@@ -198,3 +198,4 @@ def materialize_job_configs(
         override=overrides.get("gaussian-wrapping"),
         gs_output_iteration=gs_config.output_iteration,
     )
+    return gs_config

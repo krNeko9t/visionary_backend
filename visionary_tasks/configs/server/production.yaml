@@ -1,0 +1,16 @@
+# 生产环境：部署时将本文件挂载/覆盖为 active.yaml
+data_root: /data
+jobs_root: /data/jobs
+gs_repo_path: /workspace/gaussian-splatting
+task_server_container_name: visionary-task-server
+
+cors:
+  allow_origins:
+    - https://example.com
+  allow_credentials: true
+  allow_methods:
+    - GET
+    - POST
+  allow_headers:
+    - Authorization
+    - Content-Type

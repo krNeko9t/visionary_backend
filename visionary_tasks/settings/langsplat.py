@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -16,32 +15,11 @@ MODEL_SKIP = {"source_path", "model_path"}
 TRAINING_SKIP = {"start_checkpoint"}
 
 
-def _env_bool(name: str) -> bool | None:
-    raw = os.getenv(name)
-    if raw is None:
-        return None
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
-@dataclass(frozen=True)
-class LangSplatSettings:
-    worker_image: str
-    ckpts_host: str
-
-    @classmethod
-    def from_env(cls) -> "LangSplatSettings":
-        return cls(
-            worker_image=os.getenv("LANGSPLAT_WORKER_IMAGE", "langsplatv2:pt241"),
-            ckpts_host=os.getenv(
-                "LANGSPLAT_CKPTS_HOST",
-                r"C:\Visionary\data\ckpts",
-            ).strip(),
-        )
-
-
 @dataclass
 class LangSplatRuntimeConfig:
+    worker_image: str = "langsplatv2:pt241"
     model_relative: str = "langsplatv2"
+    ckpts_host: str = ""
 
 
 @dataclass
@@ -137,23 +115,6 @@ class LangSplatJobConfig:
             pipeline=LangSplatPipelineConfig(**dict(payload.get("pipeline") or {})),
             training=LangSplatTrainingConfig(**dict(payload.get("training") or {})),
         )
-
-    def apply_env_overrides(self) -> "LangSplatJobConfig":
-        if os.getenv("LANGSPLAT_FEATURE_LEVEL") is not None:
-            self.model.feature_level = int(os.getenv("LANGSPLAT_FEATURE_LEVEL", "0"))
-        if os.getenv("LANGSPLAT_VQ_LAYER_NUM") is not None:
-            self.optimization.vq_layer_num = int(os.getenv("LANGSPLAT_VQ_LAYER_NUM", "1"))
-        if os.getenv("LANGSPLAT_CODEBOOK_SIZE") is not None:
-            self.optimization.codebook_size = int(os.getenv("LANGSPLAT_CODEBOOK_SIZE", "64"))
-        if os.getenv("LANGSPLAT_TOPK") is not None:
-            self.training.topk = int(os.getenv("LANGSPLAT_TOPK", "4"))
-        cos_loss = _env_bool("LANGSPLAT_COS_LOSS")
-        if cos_loss is not None:
-            self.training.cos_loss = cos_loss
-        model_relative = os.getenv("LANGSPLAT_MODEL_RELATIVE")
-        if model_relative is not None:
-            self.runtime.model_relative = model_relative
-        return self
 
     def to_dict(self) -> dict[str, Any]:
         return {

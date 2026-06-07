@@ -2,7 +2,10 @@
 # source_path / model_path / start_checkpoint 由 executor 注入
 
 runtime:
+  worker_image: langsplatv2:pt241
   model_relative: langsplatv2
+  # 宿主机 ckpts 绝对路径；留空则不挂载（LangSplat 需自行提供 checkpoint）
+  ckpts_host: ""
 
 preprocess:
   resolution: -1

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -24,6 +23,11 @@ def _ensure_iteration_present(values: list[int], iteration: int, field_name: str
             f"training.{field_name} 必须包含 output_iteration={iteration}"
         )
     return normalized
+
+
+@dataclass
+class GsRuntimeConfig:
+    output_relative: str = "output"
 
 
 @dataclass
@@ -91,6 +95,7 @@ class GsTrainingConfig:
 
 @dataclass
 class GsJobConfig:
+    runtime: GsRuntimeConfig
     model: GsModelConfig
     optimization: GsOptimizationConfig
     pipeline: GsPipelineConfig
@@ -100,9 +105,14 @@ class GsJobConfig:
     def output_iteration(self) -> int:
         return self.training.output_iteration
 
+    @property
+    def output_relative(self) -> str:
+        return self.runtime.output_relative
+
     @classmethod
     def from_merged_dict(cls, payload: dict[str, Any]) -> "GsJobConfig":
         config = cls(
+            runtime=GsRuntimeConfig(**dict(payload.get("runtime") or {})),
             model=GsModelConfig(**dict(payload.get("model") or {})),
             optimization=GsOptimizationConfig(**dict(payload.get("optimization") or {})),
             pipeline=GsPipelineConfig(**dict(payload.get("pipeline") or {})),
@@ -124,30 +134,9 @@ class GsJobConfig:
         )
         return self
 
-    def apply_env_overrides(self) -> "GsJobConfig":
-        iterations_env = os.getenv("GS_ITERATIONS")
-        if iterations_env is not None:
-            self.optimization.iterations = int(iterations_env)
-
-        save_iteration_env = os.getenv("GS_SAVE_ITERATION")
-        if save_iteration_env is not None:
-            output_iteration = int(save_iteration_env)
-            self.training.output_iteration = output_iteration
-            self.training.save_iterations = _ensure_iteration_present(
-                self.training.save_iterations,
-                output_iteration,
-                "save_iterations",
-            )
-            self.training.checkpoint_iterations = _ensure_iteration_present(
-                self.training.checkpoint_iterations,
-                output_iteration,
-                "checkpoint_iterations",
-            )
-
-        return self.validate()
-
     def to_dict(self) -> dict[str, Any]:
         return {
+            "runtime": asdict(self.runtime),
             "model": asdict(self.model),
             "optimization": asdict(self.optimization),
             "pipeline": asdict(self.pipeline),

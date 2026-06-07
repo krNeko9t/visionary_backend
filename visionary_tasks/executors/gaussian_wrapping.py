@@ -4,7 +4,7 @@ import docker
 from docker.errors import DockerException
 from docker.types import DeviceRequest
 
-from ..config.loader import load_gaussian_wrapping_job_config
+from ..config.loader import load_gaussian_wrapping_job_config, load_gs_job_config
 from ..docker.mount import resolve_host_job_path
 from ..jobs.paths import JobPaths
 from ..jobs.stage_artifacts import persist_stage_artifact
@@ -21,7 +21,8 @@ def run(settings: Settings, paths: JobPaths) -> dict[str, str]:
     if missing:
         raise FileNotFoundError("; ".join(missing))
     config = load_gaussian_wrapping_job_config(settings, paths)
-    wrapping = settings.wrapping
+    gs_config = load_gs_job_config(settings, paths)
+    output_relative = gs_config.output_relative
 
     try:
         client = docker.from_env()
@@ -30,10 +31,13 @@ def run(settings: Settings, paths: JobPaths) -> dict[str, str]:
 
     try:
         host_job_path = resolve_host_job_path(settings, paths.root, client)
-        cmd = config.to_container_command("/job/colmap", "/job/output")
+        cmd = config.to_container_command(
+            "/job/colmap",
+            f"/job/{output_relative}",
+        )
         volumes = {str(host_job_path): {"bind": "/job", "mode": "rw"}}
         result = client.containers.run(
-            wrapping.worker_image,
+            config.worker_image,
             command=cmd,
             volumes=volumes,
             device_requests=[DeviceRequest(count=-1, capabilities=[["gpu"]])],
@@ -52,8 +56,8 @@ def run(settings: Settings, paths: JobPaths) -> dict[str, str]:
 
     mesh_ply_names = tuple(config.outputs.mesh_ply_names)
     mesh_textured_ply_names = tuple(config.outputs.mesh_textured_ply_names)
-    mesh_ply = paths.wrapping_mesh_ply(settings, mesh_ply_names)
-    mesh_textured_ply = paths.wrapping_mesh_textured_ply(settings, mesh_textured_ply_names)
+    mesh_ply = paths.wrapping_mesh_ply(output_relative, mesh_ply_names)
+    mesh_textured_ply = paths.wrapping_mesh_textured_ply(output_relative, mesh_textured_ply_names)
     if mesh_ply is None and mesh_textured_ply is None:
         raise FileNotFoundError(
             "gaussian-wrapping 未生成 mesh 文件，"

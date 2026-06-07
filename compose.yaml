@@ -11,6 +11,8 @@ services:
       - ./data:/data
       - /var/run/docker.sock:/var/run/docker.sock
       - ./visionary_tasks:/workspace/visionary_tasks
+      # 生产环境：取消注释下一行，用 production.yaml 覆盖 active.yaml
+      # - ./visionary_tasks/configs/server/production.yaml:/workspace/visionary_tasks/configs/server/active.yaml:ro
     gpus: all
 
   web-demo:

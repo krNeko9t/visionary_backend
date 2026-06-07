@@ -71,16 +71,17 @@ async def create_job(
 
     job_id = uuid.uuid4().hex[:12]
     paths = JobPaths.from_settings(settings, job_id)
-    paths.ensure_dirs(settings)
 
     saved = save_upload_files(checked_files, paths.input_dir)
     if saved == 0:
         raise HTTPException(status_code=400, detail="未检测到有效文件名")
 
     try:
-        materialize_job_configs(settings, paths, overrides=config_overrides)
+        gs_config = materialize_job_configs(settings, paths, overrides=config_overrides)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    paths.ensure_dirs(gs_config.output_relative)
 
     record = JobRecord.queued(job_id, enabled_stages)
     write_record(paths.status_file, record)

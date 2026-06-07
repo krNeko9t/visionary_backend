@@ -1,0 +1,19 @@
+# 开发环境：配合 compose 中 ./data:/data 挂载使用
+data_root: /data
+jobs_root: /data/jobs
+gs_repo_path: /workspace/gaussian-splatting
+task_server_container_name: visionary-task-server
+
+cors:
+  allow_origins:
+    - http://localhost:5173
+    - http://127.0.0.1:5173
+  allow_credentials: true
+  allow_methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  allow_headers:
+    - "*"

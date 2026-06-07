@@ -1,6 +1,7 @@
 # GaussianWrapping：extract_and_texture_from_native_3dgs.py
 # source_path / model_path 由 executor 注入（/job/colmap、/job/output）
 # iteration 应对齐 3DGS 的 training.output_iteration
+worker_image: gaussian-wrapping:latest
 
 extraction:
   iteration: 500

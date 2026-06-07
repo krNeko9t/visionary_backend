@@ -1,0 +1,20 @@
+# 服务当前生效配置；默认与 development.yaml 一致
+# 生产部署：将 production.yaml 覆盖挂载到此路径
+data_root: /data
+jobs_root: /data/jobs
+gs_repo_path: /workspace/gaussian-splatting
+task_server_container_name: visionary-task-server
+
+cors:
+  allow_origins:
+    - http://localhost:5173
+    - http://127.0.0.1:5173
+  allow_credentials: true
+  allow_methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  allow_headers:
+    - "*"

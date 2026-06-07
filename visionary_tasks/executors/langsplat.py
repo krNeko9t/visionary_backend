@@ -22,7 +22,7 @@ def run(settings: Settings, paths: JobPaths) -> dict[str, str]:
     if missing:
         raise FileNotFoundError("; ".join(missing))
     config = load_langsplat_job_config(settings, paths)
-    langsplat = settings.langsplat
+    runtime = config.runtime
 
     try:
         client = docker.from_env()
@@ -32,32 +32,30 @@ def run(settings: Settings, paths: JobPaths) -> dict[str, str]:
     try:
         host_job_path = resolve_host_job_path(settings, paths.root, client)
         volumes = {str(host_job_path): {"bind": JOB_MOUNT, "mode": "rw"}}
-        if langsplat.ckpts_host:
-            volumes[langsplat.ckpts_host] = {"bind": "/workspace/ckpts", "mode": "ro"}
+        if runtime.ckpts_host:
+            volumes[runtime.ckpts_host] = {"bind": "/workspace/ckpts", "mode": "ro"}
         device_requests = [DeviceRequest(count=-1, capabilities=[["gpu"]])]
 
         preprocess_cmd = config.to_preprocess_command(f"{JOB_MOUNT}/colmap")
         _run_container(
             client,
-            langsplat.worker_image,
+            runtime.worker_image,
             preprocess_cmd,
             volumes,
             device_requests,
             "langsplat preprocess",
         )
 
-        checkpoint = paths.gs_checkpoint(
-            settings,
-            load_gs_job_config(settings, paths).output_iteration,
-        )
+        gs_config = load_gs_job_config(settings, paths)
+        checkpoint = paths.gs_checkpoint(gs_config.output_relative, gs_config.output_iteration)
         train_cmd = config.to_train_command(
             source_path=f"{JOB_MOUNT}/colmap",
-            model_path=f"{JOB_MOUNT}/{config.runtime.model_relative}",
+            model_path=f"{JOB_MOUNT}/{runtime.model_relative}",
             checkpoint_path=f"{JOB_MOUNT}/{checkpoint.relative_to(paths.root).as_posix()}",
         )
         _run_container(
             client,
-            langsplat.worker_image,
+            runtime.worker_image,
             train_cmd,
             volumes,
             device_requests,
@@ -66,7 +64,7 @@ def run(settings: Settings, paths: JobPaths) -> dict[str, str]:
     finally:
         client.close()
 
-    model_dir = paths.langsplat_model_dir(config.runtime.model_relative)
+    model_dir = paths.langsplat_model_dir(runtime.model_relative)
     if not model_dir.is_dir() or not any(model_dir.iterdir()):
         raise FileNotFoundError(
             f"langsplat 未生成模型目录或目录为空: {model_dir.relative_to(paths.root)}"

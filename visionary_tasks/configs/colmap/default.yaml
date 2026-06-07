@@ -1,5 +1,7 @@
 # COLMAP convert.py 参数（docker/colmap-worker 入口）
 # source_path 由 executor 注入为 /job，对应 job 根目录（图像在 input/ 下）
+worker_image: visionary-colmap-worker:local
+
 converter:
   camera: OPENCV
   no_gpu: false

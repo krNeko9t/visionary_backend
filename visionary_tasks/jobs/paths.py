@@ -1,9 +1,9 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
 
 from ..settings import Settings
-
-STATUS_FILENAME = "progress.json"
 
 
 def _first_existing(candidates) -> Path | None:
@@ -19,16 +19,49 @@ class JobPaths:
     root: Path
 
     @classmethod
-    def from_settings(cls, settings: Settings, job_id: str) -> "JobPaths":
+    def from_settings(cls, settings: Settings, job_id: str) -> JobPaths:
         return cls(job_id=job_id, root=settings.jobs_root / job_id)
-
-    @property
-    def status_file(self) -> Path:
-        return self.root / STATUS_FILENAME
 
     @property
     def input_dir(self) -> Path:
         return self.root / "input"
+
+    @property
+    def config_dir(self) -> Path:
+        return self.root / "config"
+
+    @property
+    def state_dir(self) -> Path:
+        return self.root / "state"
+
+    @property
+    def job_state_file(self) -> Path:
+        return self.state_dir / "job.json"
+
+    @property
+    def events_dir(self) -> Path:
+        return self.root / "events"
+
+    def stage_dir(self, stage_id: str) -> Path:
+        return self.root / "stages" / stage_id
+
+    def stage_result_file(self, stage_id: str) -> Path:
+        return self.stage_dir(stage_id) / "result.json"
+
+    def stage_events_file(self, stage_id: str) -> Path:
+        return self.events_dir / f"{stage_id}.jsonl"
+
+    def stage_config_path(self, stage_id: str) -> Path:
+        filename = {
+            "3dgs": "3dgs.yaml",
+            "colmap": "colmap.yaml",
+            "langsplat": "langsplat.yaml",
+            "gaussian-wrapping": "gaussian-wrapping.yaml",
+        }[stage_id]
+        return self.config_dir / filename
+
+    def resolve(self, relative: str) -> Path:
+        return self.root / relative
 
     @property
     def colmap_dir(self) -> Path:
@@ -36,28 +69,6 @@ class JobPaths:
 
     def output_dir(self, output_relative: str = "output") -> Path:
         return self.root / output_relative
-
-    @property
-    def artifacts_dir(self) -> Path:
-        return self.root / "artifacts"
-
-    def stage_artifact_file(self, stage_name: str, filename: str = "result.json") -> Path:
-        return self.artifacts_dir / stage_name / filename
-
-    def artifact(self, relative: str) -> Path:
-        return self.root / relative
-
-    def gs_config_path(self) -> Path:
-        return self.root / "config" / "3dgs.yaml"
-
-    def colmap_config_path(self) -> Path:
-        return self.root / "config" / "colmap.yaml"
-
-    def langsplat_config_path(self) -> Path:
-        return self.root / "config" / "langsplat.yaml"
-
-    def gaussian_wrapping_config_path(self) -> Path:
-        return self.root / "config" / "gaussian-wrapping.yaml"
 
     def gs_output_ply(self, output_relative: str, output_iteration: int) -> Path:
         return (
@@ -76,10 +87,7 @@ class JobPaths:
         output_relative: str,
         mesh_ply_names: tuple[str, ...],
     ) -> Path | None:
-        return _first_existing(
-            self.output_dir(output_relative) / name
-            for name in mesh_ply_names
-        )
+        return _first_existing(self.output_dir(output_relative) / name for name in mesh_ply_names)
 
     def wrapping_mesh_textured_ply(
         self,
@@ -87,13 +95,14 @@ class JobPaths:
         mesh_textured_ply_names: tuple[str, ...],
     ) -> Path | None:
         return _first_existing(
-            self.output_dir(output_relative) / name
-            for name in mesh_textured_ply_names
+            self.output_dir(output_relative) / name for name in mesh_textured_ply_names
         )
 
-    def ensure_dirs(self, output_relative: str = "output") -> None:
+    def ensure_layout(self, output_relative: str = "output") -> None:
         self.input_dir.mkdir(parents=True, exist_ok=True)
+        self.config_dir.mkdir(parents=True, exist_ok=True)
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+        self.events_dir.mkdir(parents=True, exist_ok=True)
         self.colmap_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir(output_relative).mkdir(parents=True, exist_ok=True)
-        self.artifacts_dir.mkdir(parents=True, exist_ok=True)
-        (self.root / "config").mkdir(parents=True, exist_ok=True)
+        (self.root / "stages").mkdir(parents=True, exist_ok=True)

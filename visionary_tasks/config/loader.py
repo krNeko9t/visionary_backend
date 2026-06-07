@@ -11,14 +11,7 @@ from ..settings.colmap import ColmapJobConfig
 from ..settings.gaussian_wrapping import GaussianWrappingJobConfig
 from ..settings.gs import GsJobConfig
 from ..settings.langsplat import LangSplatJobConfig
-
-_PACKAGE_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_CONFIGS = {
-    "3dgs": _PACKAGE_ROOT / "configs" / "3dgs" / "default.yaml",
-    "colmap": _PACKAGE_ROOT / "configs" / "colmap" / "default.yaml",
-    "langsplat": _PACKAGE_ROOT / "configs" / "langsplat" / "default.yaml",
-    "gaussian-wrapping": _PACKAGE_ROOT / "configs" / "gaussian-wrapping" / "default.yaml",
-}
+from .registry import CONFIG_FACTORIES, DEFAULT_CONFIG_PATHS, GS_PRESET_PATHS, STAGE_IDS
 
 
 def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -47,155 +40,96 @@ def _write_job_config(path: Path, payload: dict[str, Any]) -> None:
         yaml.safe_dump(payload, handle, sort_keys=False, allow_unicode=True)
 
 
-def resolve_gs_config(
-    settings: Settings | None = None,
+def _resolve_stage_config(
+    stage_id: str,
     paths: JobPaths | None = None,
     override: dict[str, Any] | None = None,
-) -> GsJobConfig:
-    del settings
-    merged = load_yaml(DEFAULT_CONFIGS["3dgs"])
+    preset: str | None = None,
+) -> dict[str, Any]:
+    merged = load_yaml(DEFAULT_CONFIG_PATHS[stage_id])
+    if stage_id == "3dgs" and preset and preset in GS_PRESET_PATHS:
+        merged = deep_merge(merged, load_yaml(GS_PRESET_PATHS[preset]))
     if paths is not None:
-        job_config = paths.gs_config_path()
+        job_config = paths.stage_config_path(stage_id)
         if job_config.exists():
             merged = deep_merge(merged, load_yaml(job_config))
     if override:
         merged = deep_merge(merged, override)
-    return GsJobConfig.from_merged_dict(merged)
+    return merged
 
 
-def materialize_gs_config(
-    settings: Settings,
+def materialize_stage_config(
+    stage_id: str,
     paths: JobPaths,
     override: dict[str, Any] | None = None,
-) -> GsJobConfig:
-    config = resolve_gs_config(settings, override=override)
-    _write_job_config(paths.gs_config_path(), config.to_dict())
-    return config
-
-
-def load_gs_job_config(settings: Settings, paths: JobPaths) -> GsJobConfig:
-    del settings
-    config_path = paths.gs_config_path()
-    if not config_path.exists():
-        return materialize_gs_config(settings, paths)
-    merged = load_yaml(config_path)
-    return GsJobConfig.from_merged_dict(merged)
-
-
-def resolve_colmap_config(
-    override: dict[str, Any] | None = None,
-) -> ColmapJobConfig:
-    merged = load_yaml(DEFAULT_CONFIGS["colmap"])
-    if override:
-        merged = deep_merge(merged, override)
-    return ColmapJobConfig.from_merged_dict(merged)
-
-
-def materialize_colmap_config(
-    paths: JobPaths,
-    override: dict[str, Any] | None = None,
-) -> ColmapJobConfig:
-    config = resolve_colmap_config(override=override)
-    _write_job_config(paths.colmap_config_path(), config.to_dict())
-    return config
-
-
-def load_colmap_job_config(settings: Settings, paths: JobPaths) -> ColmapJobConfig:
-    del settings
-    config_path = paths.colmap_config_path()
-    if not config_path.exists():
-        return materialize_colmap_config(paths)
-    merged = load_yaml(config_path)
-    return ColmapJobConfig.from_merged_dict(merged)
-
-
-def resolve_langsplat_config(
-    override: dict[str, Any] | None = None,
-) -> LangSplatJobConfig:
-    merged = load_yaml(DEFAULT_CONFIGS["langsplat"])
-    if override:
-        merged = deep_merge(merged, override)
-    return LangSplatJobConfig.from_merged_dict(merged)
-
-
-def materialize_langsplat_config(
-    paths: JobPaths,
-    override: dict[str, Any] | None = None,
-) -> LangSplatJobConfig:
-    config = resolve_langsplat_config(override=override)
-    _write_job_config(paths.langsplat_config_path(), config.to_dict())
-    return config
-
-
-def load_langsplat_job_config(settings: Settings, paths: JobPaths) -> LangSplatJobConfig:
-    del settings
-    config_path = paths.langsplat_config_path()
-    if not config_path.exists():
-        return materialize_langsplat_config(paths)
-    merged = load_yaml(config_path)
-    return LangSplatJobConfig.from_merged_dict(merged)
-
-
-def resolve_gaussian_wrapping_config(
-    override: dict[str, Any] | None = None,
+    preset: str | None = None,
     gs_output_iteration: int | None = None,
-) -> GaussianWrappingJobConfig:
-    merged = load_yaml(DEFAULT_CONFIGS["gaussian-wrapping"])
-    if override:
-        merged = deep_merge(merged, override)
-    config = GaussianWrappingJobConfig.from_merged_dict(merged)
-    if gs_output_iteration is not None:
+) -> Any:
+    merged = _resolve_stage_config(stage_id, paths=None, override=override, preset=preset)
+    config = CONFIG_FACTORIES[stage_id](merged)
+    if stage_id == "gaussian-wrapping" and gs_output_iteration is not None:
         config.sync_gs_iteration(gs_output_iteration)
+    _write_job_config(paths.stage_config_path(stage_id), config.to_dict())
     return config
 
 
-def materialize_gaussian_wrapping_config(
-    settings: Settings,
-    paths: JobPaths,
-    override: dict[str, Any] | None = None,
-    gs_output_iteration: int | None = None,
-) -> GaussianWrappingJobConfig:
-    if gs_output_iteration is None:
-        gs_output_iteration = resolve_gs_config(settings, override=None).output_iteration
-    config = resolve_gaussian_wrapping_config(
-        override=override,
-        gs_output_iteration=gs_output_iteration,
-    )
-    _write_job_config(paths.gaussian_wrapping_config_path(), config.to_dict())
-    return config
-
-
-def load_gaussian_wrapping_job_config(
-    settings: Settings,
-    paths: JobPaths,
-) -> GaussianWrappingJobConfig:
-    gs_output_iteration = load_gs_job_config(settings, paths).output_iteration
-    config_path = paths.gaussian_wrapping_config_path()
+def load_stage_config(stage_id: str, settings: Settings, paths: JobPaths) -> Any:
+    del settings
+    config_path = paths.stage_config_path(stage_id)
     if not config_path.exists():
-        return materialize_gaussian_wrapping_config(
-            settings,
-            paths,
-            gs_output_iteration=gs_output_iteration,
-        )
+        return materialize_stage_config(stage_id, paths)
     merged = load_yaml(config_path)
-    config = GaussianWrappingJobConfig.from_merged_dict(merged)
-    config.sync_gs_iteration(gs_output_iteration)
+    config = CONFIG_FACTORIES[stage_id](merged)
+    if stage_id == "gaussian-wrapping":
+        gs_config = load_stage_config("3dgs", settings, paths)
+        config.sync_gs_iteration(gs_config.output_iteration)
     return config
 
 
 def materialize_job_configs(
     settings: Settings,
     paths: JobPaths,
+    stage_ids: list[str],
     overrides: dict[str, dict[str, Any] | None] | None = None,
+    preset: str | None = None,
 ) -> GsJobConfig:
     overrides = overrides or {}
-    gs_config = materialize_gs_config(settings, paths, override=overrides.get("3dgs"))
-    materialize_colmap_config(paths, override=overrides.get("colmap"))
-    materialize_langsplat_config(paths, override=overrides.get("langsplat"))
-    materialize_gaussian_wrapping_config(
-        settings,
+    gs_preset = preset if preset in GS_PRESET_PATHS else None
+    gs_config = materialize_stage_config(
+        "3dgs",
         paths,
-        override=overrides.get("gaussian-wrapping"),
-        gs_output_iteration=gs_config.output_iteration,
+        override=overrides.get("3dgs"),
+        preset=gs_preset,
     )
+    for stage_id in STAGE_IDS:
+        if stage_id == "3dgs" or stage_id not in stage_ids:
+            continue
+        if stage_id == "gaussian-wrapping":
+            materialize_stage_config(
+                stage_id,
+                paths,
+                override=overrides.get(stage_id),
+                gs_output_iteration=gs_config.output_iteration,
+            )
+        else:
+            materialize_stage_config(stage_id, paths, override=overrides.get(stage_id))
     return gs_config
+
+
+def load_gs_job_config(settings: Settings, paths: JobPaths) -> GsJobConfig:
+    return load_stage_config("3dgs", settings, paths)
+
+
+def load_colmap_job_config(settings: Settings, paths: JobPaths) -> ColmapJobConfig:
+    return load_stage_config("colmap", settings, paths)
+
+
+def load_langsplat_job_config(settings: Settings, paths: JobPaths) -> LangSplatJobConfig:
+    return load_stage_config("langsplat", settings, paths)
+
+
+def load_gaussian_wrapping_job_config(
+    settings: Settings,
+    paths: JobPaths,
+) -> GaussianWrappingJobConfig:
+    return load_stage_config("gaussian-wrapping", settings, paths)

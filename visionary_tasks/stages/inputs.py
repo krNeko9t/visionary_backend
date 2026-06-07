@@ -32,9 +32,7 @@ def missing_langsplat_inputs(paths: JobPaths, settings: Settings) -> list[str]:
     config = load_gs_job_config(settings, paths)
     checkpoint = paths.gs_checkpoint(config.output_relative, config.output_iteration)
     if not checkpoint.exists():
-        missing.append(
-            f"缺少 3DGS checkpoint: {checkpoint.relative_to(paths.root)}"
-        )
+        missing.append(f"缺少 3DGS checkpoint: {checkpoint.relative_to(paths.root)}")
     return missing
 
 

@@ -1,14 +1,18 @@
-from pathlib import Path
+from __future__ import annotations
 
-import docker
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ..settings import Settings
+
+if TYPE_CHECKING:
+    from docker import DockerClient
 
 
 def resolve_host_job_path(
     settings: Settings,
     job_root: Path,
-    client: docker.DockerClient,
+    client: DockerClient,
 ) -> Path:
     task_container = client.containers.get(settings.task_server_container_name)
     mounts = task_container.attrs.get("Mounts", [])

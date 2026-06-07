@@ -1,149 +1,102 @@
-# Jobs 目录与 Worker 产物说明
+﻿# Jobs 目录与 Worker 产物
 
-本文说明单个任务目录（`jobs/{job_id}`）的文件结构，以及每个 worker 实际会产出的文件类型与位置。
+本文说明单个任务目录的文件结构，以及各 worker 的输入要求与产出位置。
 
-## 1. 任务根目录结构
+## 任务根目录
 
-默认情况下，`JOBS_ROOT` 为 `/data/jobs`，单个任务目录为：
-
-`/data/jobs/{job_id}`
-
-典型结构如下（`[]` 表示可选，`...` 表示该目录下还有其它内容）：
+默认 `JOBS_ROOT` 为 `/data/jobs`，单个任务目录为 `/data/jobs/{job_id}`。
 
 ```text
 jobs/{job_id}/
-├─ progress.json
-├─ input/
-│  ├─ *.jpg|*.jpeg|*.png|*.bmp|*.webp
-├─ colmap/
-│  ├─ sparse/
-│  │  └─ 0/
-│  ├─ images/
-│  ├─ distorted/
-│  ├─ stereo/
-│  ├─ run-colmap-geometric.sh
-│  └─ run-colmap-photometric.sh
-├─ output/
-│  ├─ point_cloud/
-│  │  └─ iteration_{N}/
-│  │     └─ point_cloud.ply
-│  ├─ chkpnt{N}.pth
-│  ├─ [mesh_*.ply]
-│  └─ ...
-├─ langsplatv2/  # 默认值，可被 LANGSPLAT_MODEL_RELATIVE 覆盖
-│  └─ ...
-├─ artifacts/
-│  ├─ colmap/result.json
-│  ├─ 3dgs/result.json
-│  ├─ langsplat/result.json
-│  └─ gaussian-wrapping/result.json
-└─ config/
-   ├─ colmap.yaml
-   ├─ 3dgs.yaml
-   ├─ langsplat.yaml
-   └─ gaussian-wrapping.yaml
+  state/job.json
+  input/
+  config/
+  stages/
+  events/
+  colmap/
+  output/
+  langsplatv2/
 ```
 
-## 2. 固定目录与文件含义
+## 固定目录含义
 
-- `progress.json`：任务总状态、阶段状态、时间、错误信息与 `artifacts` 聚合来源。
-- `input/`：上传的输入图片（创建任务时写入）。
-- `config/*.yaml`：创建任务时物化的阶段配置，后续执行按该配置读取。
-- `artifacts/{stage}/result.json`：每个阶段完成后写入的标准产物索引文件（相对路径形式）。
-- `colmap/`、`output/`、`langsplat*`：各 worker 运行后的实际产物目录。
+| 路径 | 含义 |
+|------|------|
+| `state/job.json` | 任务总状态、阶段状态、产物索引 |
+| `input/` | 上传的输入图片 |
+| `config/*.yaml` | 创建任务时物化的阶段配置 |
+| `stages/{stage_id}/result.json` | 阶段标准结果，含 artifact 列表 |
+| `events/{stage_id}.jsonl` | 阶段进度事件，每行一条 JSON |
+| `colmap/`、`output/`、`langsplatv2/` | worker 实际产物目录 |
 
-## 3. 每个 Worker 产物
+## colmap
 
-### 3.1 colmap worker
+输入要求：`input/` 下至少一张图片。
 
-### 输入要求
+产出位置：容器先将产物写到 job 根目录，服务端整理到 `colmap/`。
 
-- `input/` 下至少一张图片。
+- `colmap/sparse/0`
+- `colmap/images`
+- `colmap/distorted`
+- `colmap/stereo`
 
-### 产出位置
+阶段结果写入 `stages/colmap/result.json`，登记 artifact：
 
-- 产出先由容器写到 job 根目录，再被整理进 `colmap/`：
-  - `colmap/sparse/0`（稀疏重建，后续阶段关键输入）
-  - `colmap/images`
-  - `colmap/distorted`
-  - `colmap/stereo`
-  - `colmap/run-colmap-geometric.sh`
-  - `colmap/run-colmap-photometric.sh`
+- `colmap_sparse` → `colmap/sparse/0`
+- `colmap_images` → `colmap/images`
 
-### 对应 artifacts 文件
+## 3dgs
 
-- `artifacts/colmap/result.json`（关键字段）：
-  - `sparse_dir: "colmap/sparse/0"`
-  - `images_dir: "colmap/images"`
-  - `result: "artifacts/colmap/result.json"`
+输入要求：`colmap/sparse` 存在。
 
-### 3.2 3dgs worker
+产出位置：`output/`，目录名可由 `config/3dgs.yaml` 中 `runtime.output_relative` 覆盖。
 
-### 输入要求
+- `output/point_cloud/iteration_{N}/point_cloud.ply`
+- `output/chkpnt{N}.pth`
 
-- `colmap/sparse` 存在。
+`N` 来自 `config/3dgs.yaml` 的 `training.output_iteration`。
 
-### 产出位置
+阶段结果登记 artifact：
 
-- 固定输出根目录：`output/`（可由 `GS_OUTPUT_RELATIVE` 覆盖）。
-- 至少需要存在：
-  - `output/point_cloud/iteration_{N}/point_cloud.ply`
-- 通常同时会产生：
-  - `output/chkpnt{N}.pth`
+- `point_cloud` → ply 文件路径
+- `gs_checkpoint` → checkpoint 路径
 
-其中 `N` 来自 `config/3dgs.yaml` 的 `training.output_iteration`。
+## langsplat
 
-### 对应 artifacts 文件
+输入要求：
 
-- `artifacts/3dgs/result.json`（关键字段）：
-  - `ply: "output/point_cloud/iteration_{N}/point_cloud.ply"`
-  - `result: "artifacts/3dgs/result.json"`
+- `colmap/sparse` 存在
+- `output/chkpnt{N}.pth` 存在，`N` 与 3DGS `output_iteration` 对齐
 
-### 3.3 langsplat worker
+产出位置：`langsplatv2/`，目录名由 `config/langsplat.yaml` 中 `runtime.model_relative` 决定。
 
-### 输入要求
+阶段结果登记 artifact：
 
-- `colmap/sparse` 存在；
-- `output/chkpnt{N}.pth` 存在（`N` 与 3DGS 的 `output_iteration` 对齐）。
+- `language_model` → 模型目录路径
 
-### 产出位置
+## gaussian-wrapping
 
-- 模型目录：`{model_relative}/`（默认 `langsplatv2/`，可配置/环境变量覆盖）。
-- 后端只校验“目录存在且非空”，因此内部文件结构由 LangSplatV2 自身决定（例如 checkpoint、特征文件、日志等）。
+输入要求：
 
-### 对应 artifacts 文件
+- `colmap/sparse` 存在
+- `output/point_cloud/iteration_{N}/point_cloud.ply` 存在
 
-- `artifacts/langsplat/result.json`（关键字段）：
-  - `model_dir: "{model_relative}"`
-  - `result: "artifacts/langsplat/result.json"`
+产出位置：`output/` 下，文件名由 `config/gaussian-wrapping.yaml` 的 `outputs` 段定义。
 
-### 3.4 gaussian-wrapping worker
+默认查找：
 
-### 输入要求
+- `mesh_ours_2pivots_post.ply`
+- `mesh_ours_2pivots_post_texture_refined_999.ply`
 
-- `colmap/sparse` 存在；
-- `output/point_cloud/iteration_{N}/point_cloud.ply` 存在。
+阶段结果登记 artifact：
 
-### 产出位置
+- `mesh` → mesh ply 路径
+- `mesh_textured` → 带纹理 mesh ply 路径
 
-- 产物写入 `output/`。
-- 后端按 `config/gaussian-wrapping.yaml -> outputs` 中的候选文件名查找：
-  - `mesh_ply_names`（默认常见：`mesh_ours_2pivots_post.ply`）
-  - `mesh_textured_ply_names`（默认常见：`mesh_ours_2pivots_post_texture_refined_999.ply`）
+## 下载接口
 
-只要两类里任意一个命中即视为成功。
+产物通过 artifact id 下载：
 
-### 对应 artifacts 文件
-
-- `artifacts/gaussian-wrapping/result.json` 可能包含：
-  - `mesh_ply: "output/xxx.ply"`
-  - `mesh_textured_ply: "output/yyy.ply"`
-  - `result: "artifacts/gaussian-wrapping/result.json"`
-
-## 4. 下载接口与产物键对应
-
-- `/api/jobs/{job_id}/download/3dgs` -> `artifacts["3dgs"]["ply"]`
-- `/api/jobs/{job_id}/download/mesh` -> 优先 `mesh_textured_ply`，其次 `mesh_ply`
-- `/api/jobs/{job_id}/result` -> 当前实现仅返回 `output_ply`（即 `3dgs` 的 `ply`）
-
-如果需要让 `/result` 返回 mesh，需要另行调整状态聚合逻辑。
+- `GET /api/v1/jobs/{job_id}/artifacts/point_cloud/download`
+- `GET /api/v1/jobs/{job_id}/artifacts/mesh/download`
+- `GET /api/v1/jobs/{job_id}/artifacts/mesh_textured/download`

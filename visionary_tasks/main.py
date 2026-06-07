@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .http.routes_jobs import router as jobs_router
+from .api.v1.routes import router as api_v1_router
 from .settings import get_settings
 
 settings = get_settings()
@@ -16,7 +16,7 @@ app.add_middleware(
     allow_headers=list(settings.cors.allow_headers),
 )
 
-app.include_router(jobs_router)
+app.include_router(api_v1_router)
 
 
 @app.get("/healthz")

@@ -16,3 +16,4 @@ docker_workers/**/*.so
 docker_workers/**/wandb/
 docker_workers/**/output/
 docker_workers/**/outputs/
+.cursor/rules/

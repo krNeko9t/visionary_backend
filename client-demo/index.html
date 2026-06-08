@@ -3,63 +3,207 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Visionary MVP Demo</title>
+    <title>Visionary Demo</title>
     <style>
+      :root {
+        color-scheme: light;
+      }
       body {
-        font-family: Arial, sans-serif;
-        max-width: 800px;
+        font-family: "Segoe UI", Arial, sans-serif;
+        max-width: 920px;
         margin: 24px auto;
-        padding: 0 16px;
+        padding: 0 16px 48px;
         line-height: 1.5;
+      }
+      h1 {
+        margin-bottom: 8px;
+      }
+      .subtitle {
+        color: #555;
+        margin-top: 0;
       }
       .panel {
         border: 1px solid #ddd;
         border-radius: 8px;
         padding: 16px;
         margin-bottom: 16px;
+        background: #fff;
+      }
+      .row {
+        margin: 10px 0;
+      }
+      label.block {
+        display: block;
+        margin: 6px 0;
       }
       button {
         cursor: pointer;
         padding: 8px 14px;
+        margin-right: 8px;
+        margin-top: 4px;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
       }
       pre {
         background: #f6f8fa;
         padding: 12px;
         border-radius: 6px;
         overflow-x: auto;
+        font-size: 13px;
       }
       .hint {
-        color: #555;
+        color: #666;
         font-size: 14px;
+      }
+      .options-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+      }
+      .chip-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .chip {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: #eef2ff;
+        font-size: 13px;
+      }
+      .stage-list {
+        list-style: none;
+        padding: 0;
+        margin: 8px 0 0;
+      }
+      .stage-list li {
+        padding: 6px 0;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .status-pill {
+        font-size: 12px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #f0f0f0;
+        white-space: nowrap;
+      }
+      .status-pill.running { background: #fff3cd; }
+      .status-pill.done { background: #d1e7dd; }
+      .status-pill.error { background: #f8d7da; }
+      .status-pill.pending { background: #e9ecef; }
+      .hidden {
+        display: none !important;
+      }
+      #downloadList button {
+        margin-bottom: 8px;
+      }
+      input[type="number"] {
+        width: 120px;
+        padding: 6px 8px;
+      }
+      select {
+        padding: 6px 8px;
+        min-width: 160px;
       }
     </style>
   </head>
   <body>
-    <h1>Visionary MVP Demo</h1>
+    <h1>Visionary Demo</h1>
+    <p class="subtitle">对接 API v1：图片全流程 / 纯 PLY mesh / mesh 多格式导出</p>
+
     <div class="panel">
-      <h3>1) 选择图片并创建任务</h3>
-      <p>
-        <label>选择图片：</label>
-        <input id="fileInput" type="file" multiple accept="image/*" />
-      </p>
-      <p>
-        <label>选择目录：</label>
-        <input id="dirInput" type="file" webkitdirectory directory multiple />
-      </p>
-      <p class="hint">目录上传会展开为多个文件并一起提交到同一个任务。</p>
-      <button id="uploadBtn">上传并开始重建</button>
+      <h3>1) 创建任务</h3>
+
+      <div class="row options-grid">
+        <div>
+          <strong>输入模式</strong>
+          <div id="inputModeGroup"></div>
+        </div>
+        <div>
+          <strong>质量预设</strong>
+          <p>
+            <select id="presetSelect"></select>
+          </p>
+        </div>
+      </div>
+
+      <div class="row">
+        <strong>目标产物</strong>
+        <div id="outputGroup"></div>
+      </div>
+
+      <div id="meshFormatsBlock" class="row hidden">
+        <strong>Mesh 导出格式</strong>
+        <p class="hint">默认仅保留 PLY；勾选 OBJ/GLB 后由 Task Server 在 mesh 阶段完成后转换。</p>
+        <div id="meshFormatGroup"></div>
+      </div>
+
+      <div id="plyOptionsBlock" class="row hidden">
+        <strong>PLY 参数</strong>
+        <p>
+          <label>iteration：</label>
+          <input id="iterationInput" type="number" min="1" step="1" value="30000" />
+          <span class="hint">决定读取路径 output/point_cloud/iteration_{N}/point_cloud.ply</span>
+        </p>
+      </div>
+
+      <div id="imagesUploadBlock" class="row">
+        <strong>上传图片</strong>
+        <p>
+          <label class="block">选择图片：
+            <input id="fileInput" type="file" multiple accept="image/*" />
+          </label>
+          <label class="block">选择目录：
+            <input id="dirInput" type="file" webkitdirectory directory multiple />
+          </label>
+        </p>
+        <p class="hint">目录上传会展开为多个文件并提交到同一任务。</p>
+      </div>
+
+      <div id="plyUploadBlock" class="row hidden">
+        <strong>上传 PLY</strong>
+        <p>
+          <label class="block">选择 native 3DGS point_cloud.ply：
+            <input id="plyInput" type="file" accept=".ply" />
+          </label>
+        </p>
+        <p class="hint">仅支持一个 Inria 格式 3DGS PLY，将走 3dgs-to-pc Poisson mesh（无纹理，质量有限）。</p>
+      </div>
+
+      <div class="row">
+        <strong>规划阶段预览</strong>
+        <div id="plannedStagesPreview" class="chip-list"></div>
+      </div>
+
+      <button id="uploadBtn">上传并创建任务</button>
+      <button id="reloadCapabilitiesBtn" type="button">重新加载 capabilities</button>
     </div>
 
     <div class="panel">
       <h3>2) 任务状态</h3>
-      <p>当前 job_id: <strong id="jobId">-</strong></p>
+      <p>job_id: <strong id="jobId">-</strong></p>
       <p>状态: <strong id="status">-</strong></p>
       <p>说明: <strong id="message">-</strong></p>
       <p>进度: <strong id="progress">0%</strong></p>
-      <p>
-        <button id="download3dgsBtn" disabled>下载 3DGS PLY</button>
-        <button id="downloadMeshBtn" disabled>下载 Mesh PLY</button>
-      </p>
+      <p>当前阶段: <strong id="currentStage">-</strong></p>
+      <p>规划阶段: <span id="plannedStagesStatus" class="chip-list"></span></p>
+
+      <ul id="stageList" class="stage-list"></ul>
+
+      <div class="row">
+        <button id="cancelBtn" disabled>取消任务</button>
+      </div>
+
+      <div class="row">
+        <strong>产物下载</strong>
+        <div id="downloadList" class="hint">任务完成后显示可下载产物。</div>
+      </div>
     </div>
 
     <div class="panel">
@@ -69,4 +213,4 @@
 
     <script type="module" src="/main.js"></script>
   </body>
-  </html>
+</html>

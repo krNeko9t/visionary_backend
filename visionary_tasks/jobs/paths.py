@@ -57,6 +57,7 @@ class JobPaths:
             "colmap": "colmap.yaml",
             "langsplat": "langsplat.yaml",
             "gaussian-wrapping": "gaussian-wrapping.yaml",
+            "3dgs-to-pc": "3dgs-to-pc.yaml",
         }[stage_id]
         return self.config_dir / filename
 
@@ -97,6 +98,13 @@ class JobPaths:
         return _first_existing(
             self.output_dir(output_relative) / name for name in mesh_textured_ply_names
         )
+
+    def mesh_poisson_ply(
+        self,
+        output_relative: str,
+        mesh_ply_names: tuple[str, ...],
+    ) -> Path | None:
+        return _first_existing(self.output_dir(output_relative) / name for name in mesh_ply_names)
 
     def ensure_layout(self, output_relative: str = "output") -> None:
         self.input_dir.mkdir(parents=True, exist_ok=True)

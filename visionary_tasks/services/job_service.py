@@ -4,12 +4,14 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from ..config.loader import materialize_job_configs
+from ..config.loader import deep_merge, materialize_job_configs
+from ..domain.input_modes import get_iteration, is_native_3dgs_ply_mode
 from ..domain.jobs import JobSpec, JobState, ProgressEvent, now_iso
-from ..domain.pipeline import OUTPUT_DEFINITIONS, PRESETS, STAGE_DEFINITIONS
+from ..domain.pipeline import INPUT_MODE_DEFINITIONS, OUTPUT_DEFINITIONS, PRESETS, STAGE_DEFINITIONS
 from ..jobs.paths import JobPaths
-from ..jobs.storage import read_job_state, read_progress_events, save_upload_files, write_job_state
+from ..jobs.storage import read_job_state, read_progress_events, write_job_state
 from ..settings import Settings
+from .ingest import ingest_job_files
 from .planner import plan_pipeline
 from .progress import compute_job_progress, derive_current_stage, derive_error, derive_job_status
 from .runner import build_initial_stages, run_job
@@ -24,16 +26,13 @@ class JobService:
         spec: JobSpec,
         files: list[tuple[str, bytes]],
     ) -> JobState:
-        if not files:
-            raise ValueError("请至少上传一张图片")
-
         plan = plan_pipeline(spec)
         job_id = uuid.uuid4().hex[:12]
         paths = JobPaths.from_settings(self.settings, job_id)
 
         preset = spec.preset
         gs_preset = PRESETS.get(preset, {}).get("gs_preset")
-        stage_overrides = _extract_stage_overrides(spec)
+        stage_overrides = _build_stage_overrides(spec)
         gs_config = materialize_job_configs(
             self.settings,
             paths,
@@ -42,10 +41,7 @@ class JobService:
             preset=gs_preset,
         )
         paths.ensure_layout(gs_config.output_relative)
-
-        saved = save_upload_files(files, paths.input_dir)
-        if saved == 0:
-            raise ValueError("未检测到有效文件名")
+        ingest_job_files(spec, files, paths, gs_config.output_relative)
 
         timestamp = now_iso()
         state = JobState(
@@ -121,11 +117,21 @@ class JobService:
     @staticmethod
     def capabilities() -> dict[str, Any]:
         return {
+            "input_modes": [
+                {
+                    "id": mode.id,
+                    "label": mode.label,
+                    "file_types": list(mode.file_types),
+                    "allowed_outputs": list(mode.allowed_outputs),
+                }
+                for mode in INPUT_MODE_DEFINITIONS.values()
+            ],
             "outputs": [
                 {
                     "id": output.id,
                     "label": output.label,
                     "required_stages": list(output.required_stages),
+                    "ply_mode_stages": list(output.ply_mode_stages),
                 }
                 for output in OUTPUT_DEFINITIONS.values()
             ],
@@ -138,6 +144,7 @@ class JobService:
                     "label": stage.label,
                     "order": stage.order,
                     "depends_on": list(stage.depends_on),
+                    "required_artifacts": list(stage.required_artifacts),
                     "inputs": list(stage.input_hints),
                 }
                 for stage in sorted(STAGE_DEFINITIONS.values(), key=lambda item: item.order)
@@ -152,3 +159,29 @@ def _extract_stage_overrides(spec: JobSpec) -> dict[str, dict[str, Any] | None]:
     if not isinstance(overrides, dict):
         return {}
     return {str(key): dict(value) if isinstance(value, dict) else None for key, value in overrides.items()}
+
+
+def _build_stage_overrides(spec: JobSpec) -> dict[str, dict[str, Any] | None]:
+    overrides = _extract_stage_overrides(spec)
+    if not is_native_3dgs_ply_mode(spec):
+        return overrides
+
+    iteration = get_iteration(spec)
+    gs_override = deep_merge(
+        {
+            "training": {
+                "output_iteration": iteration,
+                "save_iterations": [iteration],
+                "checkpoint_iterations": [iteration],
+            }
+        },
+        overrides.get("3dgs") or {},
+    )
+    dgs_to_pc_override = deep_merge(
+        {"extraction": {"iteration": iteration}},
+        overrides.get("3dgs-to-pc") or {},
+    )
+    merged = dict(overrides)
+    merged["3dgs"] = gs_override
+    merged["3dgs-to-pc"] = dgs_to_pc_override
+    return merged

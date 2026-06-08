@@ -6,6 +6,9 @@ from pathlib import Path
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
+from ...domain.input_modes import get_input_mode
+from ...domain.jobs import JobSpec
+from ...domain.pipeline import INPUT_MODE_DEFINITIONS
 from ...services.job_service import JobService
 from ...settings import get_settings
 from .schemas import (
@@ -40,19 +43,17 @@ async def create_job(
     spec: str = Form(...),
 ) -> CreateJobResponse:
     service = _service()
-    image_exts = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
-    checked_files: list[tuple[str, bytes]] = []
-    for upload in files:
-        suffix = Path(upload.filename or "").suffix.lower()
-        if suffix not in image_exts:
-            raise HTTPException(status_code=400, detail=f"不支持的文件类型: {upload.filename}")
-        checked_files.append((upload.filename or "", await upload.read()))
 
     try:
         spec_payload = json.loads(spec)
         job_spec = JobSpecRequest.model_validate(spec_payload).to_domain()
     except (json.JSONDecodeError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=f"spec 解析失败: {exc}") from exc
+
+    try:
+        checked_files = await _read_upload_files(files, job_spec)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     try:
         state = service.create_job(job_spec, checked_files)
@@ -67,6 +68,24 @@ async def create_job(
         outputs=list(state.spec.outputs),
         planned_stages=list(state.planned_stages),
     )
+
+
+async def _read_upload_files(
+    uploads: list[UploadFile],
+    spec: JobSpec,
+) -> list[tuple[str, bytes]]:
+    if not uploads:
+        raise ValueError("请至少上传一个文件")
+
+    input_mode = get_input_mode(spec)
+    allowed_exts = set(INPUT_MODE_DEFINITIONS[input_mode].file_types)
+    checked_files: list[tuple[str, bytes]] = []
+    for upload in uploads:
+        suffix = Path(upload.filename or "").suffix.lower()
+        if suffix not in allowed_exts:
+            raise ValueError(f"input_mode={input_mode} 不支持的文件类型: {upload.filename}")
+        checked_files.append((upload.filename or "", await upload.read()))
+    return checked_files
 
 
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse)

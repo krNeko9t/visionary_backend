@@ -14,6 +14,26 @@ def test_plan_mesh_outputs():
     assert plan.stages == ("colmap", "3dgs", "gaussian-wrapping")
 
 
+def test_plan_mesh_from_native_ply():
+    plan = plan_pipeline(
+        JobSpec(
+            outputs=["mesh"],
+            options={"input_mode": "native_3dgs_ply", "iteration": 30000},
+        )
+    )
+    assert plan.stages == ("3dgs-to-pc",)
+
+
+def test_native_ply_rejects_point_cloud_output():
+    with pytest.raises(ValueError, match="不支持输出类型"):
+        plan_pipeline(
+            JobSpec(
+                outputs=["point_cloud"],
+                options={"input_mode": "native_3dgs_ply"},
+            )
+        )
+
+
 def test_plan_language_features_option_adds_language_model():
     plan = plan_pipeline(
         JobSpec(outputs=["point_cloud"], options={"language_features": True})

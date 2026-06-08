@@ -5,9 +5,10 @@ from collections.abc import Callable
 from ..jobs.paths import JobPaths
 from ..settings import Settings
 from ..workers.contract import WorkerResult
-from . import colmap, gs, langsplat, mesh
+from . import colmap, dgs_to_pc, gs, langsplat, mesh
 from .inputs import (
     missing_3dgs_inputs,
+    missing_3dgs_to_pc_inputs,
     missing_colmap_inputs,
     missing_gaussian_wrapping_inputs,
     missing_langsplat_inputs,
@@ -21,6 +22,7 @@ STAGE_RUNNERS: dict[str, StageRunner] = {
     "3dgs": gs.run,
     "langsplat": langsplat.run,
     "gaussian-wrapping": mesh.run,
+    "3dgs-to-pc": dgs_to_pc.run,
 }
 
 INPUT_CHECKERS: dict[str, InputChecker] = {
@@ -28,6 +30,7 @@ INPUT_CHECKERS: dict[str, InputChecker] = {
     "3dgs": missing_3dgs_inputs,
     "langsplat": missing_langsplat_inputs,
     "gaussian-wrapping": missing_gaussian_wrapping_inputs,
+    "3dgs-to-pc": missing_3dgs_to_pc_inputs,
 }
 
 

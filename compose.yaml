@@ -54,3 +54,11 @@ services:
     image: gaussian-wrapping:latest
     profiles:
       - tools
+
+  3dgs-to-pc-worker:
+    build:
+      context: ./docker_workers/3dgsToPc
+      dockerfile: Dockerfile
+    image: 3dgs-to-pc:latest
+    profiles:
+      - tools

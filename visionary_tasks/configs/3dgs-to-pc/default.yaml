@@ -1,0 +1,17 @@
+worker_image: 3dgs-to-pc:latest
+
+extraction:
+  iteration: 30000
+  num_points: 5000000
+  mahalanobis_distance_std: 2.0
+  min_opacity: 0.05
+  cull_gaussian_sizes: 0.0
+  max_sh_degree: 3
+  exact_num_points: false
+  clean_pointcloud: true
+  poisson_depth: 10
+  laplacian_iterations: 10
+
+outputs:
+  mesh_ply_names:
+    - mesh_poisson.ply

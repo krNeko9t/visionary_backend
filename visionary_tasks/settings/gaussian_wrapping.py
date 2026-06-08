@@ -53,6 +53,7 @@ class GaussianWrappingJobConfig:
     texture: GaussianWrappingTextureConfig
     decimation: GaussianWrappingDecimationConfig
     outputs: GaussianWrappingOutputsConfig
+    texture_enabled: bool = True
 
     @classmethod
     def from_merged_dict(cls, payload: dict[str, Any]) -> "GaussianWrappingJobConfig":
@@ -69,6 +70,7 @@ class GaussianWrappingJobConfig:
                     or ["mesh_ours_2pivots_post_texture_refined_999.ply"]
                 ),
             ),
+            texture_enabled=bool(payload.get("texture_enabled", True)),
         )
 
     def sync_gs_iteration(self, output_iteration: int) -> "GaussianWrappingJobConfig":
@@ -82,6 +84,7 @@ class GaussianWrappingJobConfig:
             "texture": asdict(self.texture),
             "decimation": asdict(self.decimation),
             "outputs": asdict(self.outputs),
+            "texture_enabled": self.texture_enabled,
         }
 
     def to_container_command(self, source_path: str, model_path: str) -> list[str]:
@@ -119,4 +122,6 @@ class GaussianWrappingJobConfig:
         if self.decimation.apply_decimation:
             command.append("--apply_decimation")
             command.extend(format_cli_arg("decimate_ratio", self.decimation.decimate_ratio))
+        if not self.texture_enabled:
+            command.append("--extraction_only")
         return command

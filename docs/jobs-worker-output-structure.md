@@ -76,6 +76,8 @@ jobs/{job_id}/
 
 ## gaussian-wrapping
 
+用于 `input_mode=images` 的 mesh 输出。
+
 输入要求：
 
 - `colmap/sparse` 存在
@@ -93,6 +95,24 @@ jobs/{job_id}/
 - `mesh` → mesh ply 路径
 - `mesh_textured` → 带纹理 mesh ply 路径
 
+## 3dgs-to-pc
+
+用于 `input_mode=native_3dgs_ply` 的 mesh 输出。
+
+输入要求：
+
+- `output/point_cloud/iteration_{N}/point_cloud.ply` 存在
+
+产出位置：`output/` 下，文件名由 `config/3dgs-to-pc.yaml` 的 `outputs` 段定义。
+
+默认查找：
+
+- `mesh_poisson.ply`
+
+阶段结果登记 artifact：
+
+- `mesh` → mesh ply 路径
+
 ## 下载接口
 
 产物通过 artifact id 下载：
@@ -100,3 +120,17 @@ jobs/{job_id}/
 - `GET /api/v1/jobs/{job_id}/artifacts/point_cloud/download`
 - `GET /api/v1/jobs/{job_id}/artifacts/mesh/download`
 - `GET /api/v1/jobs/{job_id}/artifacts/mesh_textured/download`
+
+## native_3dgs_ply 模式
+
+`input/` 可为空。上传的 ply 由服务端写入：
+
+```text
+output/point_cloud/iteration_{N}/point_cloud.ply
+output/cfg_args
+```
+
+`N` 来自 `spec.options.iteration`。
+
+仅执行 `3dgs-to-pc` 阶段，产物为 `mesh`，对应 `output/mesh_poisson.ply`。
+

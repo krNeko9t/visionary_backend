@@ -10,11 +10,12 @@
 
 ## 产物与阶段映射
 
-| output | 规划阶段 |
-|--------|----------|
-| `point_cloud` | colmap → 3dgs |
-| `mesh` | colmap → 3dgs → gaussian-wrapping |
-| `language_model` | colmap → 3dgs → langsplat |
+| output | input_mode | 规划阶段 |
+|--------|------------|----------|
+| `point_cloud` | `images` | colmap → 3dgs |
+| `mesh` | `images` | colmap → 3dgs → gaussian-wrapping |
+| `mesh` | `native_3dgs_ply` | 3dgs-to-pc |
+| `language_model` | `images` | colmap → 3dgs → langsplat |
 
 `spec.options.language_features: true` 时自动追加 `language_model` 输出。
 
@@ -42,7 +43,7 @@
 
 | 字段 | 说明 |
 |------|------|
-| `files` | 输入图片，支持 jpg、jpeg、png、bmp、webp，可多文件 |
+| `files` | 输入文件。`images` 模式上传图片，支持 jpg、jpeg、png、bmp、webp。`native_3dgs_ply` 模式上传一个 `.ply` |
 | `spec` | JSON 字符串，见下方结构 |
 
 `spec` 结构：
@@ -186,3 +187,37 @@
 
 - 健康检查：`GET /healthz`
 - 接口文档：`http://localhost:8000/docs`
+
+## 输入模式
+
+| input_mode | 上传文件 | 允许 outputs | 规划阶段 |
+|------------|----------|--------------|----------|
+| `images` | 图片 | point_cloud、mesh、language_model | 按 output 自动展开 |
+| `native_3dgs_ply` | 一个 native 3DGS point_cloud.ply | mesh | 3dgs-to-pc |
+
+图片全流程的 mesh 由 `gaussian-wrapping` 生成，可产出 `mesh` 与 `mesh_textured`。
+
+`native_3dgs_ply` 的 mesh 由 `3dgs-to-pc` 生成，从 PLY 采样稠密点云后做 Poisson 重建，产出 `mesh`，无纹理。
+
+### 从已有 ply 提取 mesh
+
+`spec` 示例：
+
+```json
+{
+  "outputs": ["mesh"],
+  "options": {
+    "input_mode": "native_3dgs_ply",
+    "iteration": 30000
+  }
+}
+```
+
+multipart 上传一个 `.ply` 文件到 `files`。
+
+服务端将 ply 写入 `output/point_cloud/iteration_{N}/point_cloud.ply`，并写入 `output/cfg_args`。
+
+`N` 来自 `spec.options.iteration`，默认 30000。
+
+产物 artifact id 为 `mesh`，文件名为 `output/mesh_poisson.ply`。
+

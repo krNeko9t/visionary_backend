@@ -1,0 +1,73 @@
+from __future__ import annotations
+
+import docker
+
+from ..config.loader import load_3dgs_to_pc_job_config, load_gs_job_config
+from ..container.mount import resolve_host_job_path
+from ..domain.jobs import Artifact
+from ..jobs.paths import JobPaths
+from ..jobs.storage import append_progress_event, write_worker_result
+from ..settings import Settings
+from ..workers.adapters.docker import build_job_volumes, run_docker_worker
+from ..workers.contract import WorkerResult, make_progress_event
+from .inputs import missing_3dgs_to_pc_inputs
+
+STAGE_ID = "3dgs-to-pc"
+
+
+def run(settings: Settings, paths: JobPaths) -> WorkerResult:
+    missing = missing_3dgs_to_pc_inputs(paths, settings)
+    if missing:
+        return WorkerResult(stage_id=STAGE_ID, status="error", error="; ".join(missing))
+
+    stage_dir = paths.stage_dir(STAGE_ID)
+    stage_dir.mkdir(parents=True, exist_ok=True)
+    config = load_3dgs_to_pc_job_config(settings, paths)
+    gs_config = load_gs_job_config(settings, paths)
+    output_relative = gs_config.output_relative
+
+    append_progress_event(
+        paths.stage_events_file(STAGE_ID),
+        make_progress_event(STAGE_ID, event_type="started", message="PLY mesh 提取开始"),
+    )
+
+    client = docker.from_env()
+    try:
+        host_job_path = str(resolve_host_job_path(settings, paths.root, client))
+    finally:
+        client.close()
+
+    logs = run_docker_worker(
+        image=config.worker_image,
+        command=config.to_container_command(output_relative),
+        volumes=build_job_volumes(host_job_path),
+        label="3dgs-to-pc",
+    )
+
+    mesh_ply_names = tuple(config.outputs.mesh_ply_names)
+    mesh_ply = paths.mesh_poisson_ply(output_relative, mesh_ply_names)
+    if mesh_ply is None:
+        return WorkerResult(
+            stage_id=STAGE_ID,
+            status="error",
+            error=f"3dgs-to-pc 未生成 mesh 文件，已检查: {mesh_ply_names}",
+        )
+
+    artifacts = [
+        Artifact(
+            id="mesh",
+            stage_id=STAGE_ID,
+            type="ply",
+            path=str(mesh_ply.relative_to(paths.root)),
+            mime="application/octet-stream",
+            label="Mesh",
+        )
+    ]
+
+    result = WorkerResult(stage_id=STAGE_ID, status="done", artifacts=artifacts, logs=logs)
+    write_worker_result(paths.stage_result_file(STAGE_ID), result)
+    append_progress_event(
+        paths.stage_events_file(STAGE_ID),
+        make_progress_event(STAGE_ID, event_type="completed", progress=1.0, message="PLY mesh 完成"),
+    )
+    return result

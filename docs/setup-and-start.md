@@ -48,10 +48,10 @@ docker compose up -d web-demo
 
 ## 提前构建工具镜像
 
-完整流水线需提前构建 tools profile 镜像：
+完整流水线或 `native_3dgs_ply` mesh 任务需提前构建 tools profile 镜像：
 
 ```powershell
-docker compose --profile tools build colmap-worker langsplat-worker gaussian-wrapping-worker
+docker compose --profile tools build colmap-worker langsplat-worker gaussian-wrapping-worker 3dgs-to-pc-worker
 ```
 
 ## 配置覆盖

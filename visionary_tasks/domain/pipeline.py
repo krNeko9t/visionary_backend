@@ -8,6 +8,7 @@ class OutputDefinition:
     id: str
     label: str
     required_stages: tuple[str, ...]
+    ply_mode_stages: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -17,7 +18,16 @@ class StageDefinition:
     order: int
     weight: float
     depends_on: tuple[str, ...]
+    required_artifacts: tuple[str, ...]
     input_hints: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class InputModeDefinition:
+    id: str
+    label: str
+    file_types: tuple[str, ...]
+    allowed_outputs: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -34,8 +44,9 @@ OUTPUT_DEFINITIONS: dict[str, OutputDefinition] = {
     ),
     "mesh": OutputDefinition(
         id="mesh",
-        label="Textured Mesh",
+        label="Mesh",
         required_stages=("colmap", "3dgs", "gaussian-wrapping"),
+        ply_mode_stages=("3dgs-to-pc",),
     ),
     "language_model": OutputDefinition(
         id="language_model",
@@ -51,6 +62,7 @@ STAGE_DEFINITIONS: dict[str, StageDefinition] = {
         order=0,
         weight=0.2,
         depends_on=(),
+        required_artifacts=("input_images",),
         input_hints=("input/ 下有图像",),
     ),
     "3dgs": StageDefinition(
@@ -59,6 +71,7 @@ STAGE_DEFINITIONS: dict[str, StageDefinition] = {
         order=1,
         weight=0.6,
         depends_on=("colmap",),
+        required_artifacts=("colmap_sparse",),
         input_hints=("colmap/sparse",),
     ),
     "langsplat": StageDefinition(
@@ -67,6 +80,7 @@ STAGE_DEFINITIONS: dict[str, StageDefinition] = {
         order=2,
         weight=0.15,
         depends_on=("colmap", "3dgs"),
+        required_artifacts=("colmap_sparse", "gs_checkpoint"),
         input_hints=("colmap/sparse", "output/chkpnt{N}.pth"),
     ),
     "gaussian-wrapping": StageDefinition(
@@ -75,7 +89,36 @@ STAGE_DEFINITIONS: dict[str, StageDefinition] = {
         order=3,
         weight=0.2,
         depends_on=("colmap", "3dgs"),
+        required_artifacts=("colmap_sparse", "point_cloud_ply"),
         input_hints=("colmap/sparse", "output/.../point_cloud.ply"),
+    ),
+    "3dgs-to-pc": StageDefinition(
+        id="3dgs-to-pc",
+        label="PLY Mesh",
+        order=3,
+        weight=0.2,
+        depends_on=(),
+        required_artifacts=("point_cloud_ply",),
+        input_hints=("output/.../point_cloud.ply",),
+    ),
+}
+
+PLY_MODE_STAGE_ARTIFACTS: dict[str, tuple[str, ...]] = {
+    "3dgs-to-pc": ("point_cloud_ply",),
+}
+
+INPUT_MODE_DEFINITIONS: dict[str, InputModeDefinition] = {
+    "images": InputModeDefinition(
+        id="images",
+        label="Images",
+        file_types=(".jpg", ".jpeg", ".png", ".bmp", ".webp"),
+        allowed_outputs=("point_cloud", "mesh", "language_model"),
+    ),
+    "native_3dgs_ply": InputModeDefinition(
+        id="native_3dgs_ply",
+        label="Native 3DGS Point Cloud PLY",
+        file_types=(".ply",),
+        allowed_outputs=("mesh",),
     ),
 }
 

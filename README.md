@@ -45,7 +45,7 @@ docker compose up -d web-demo
 完整流水线包含 `langsplat` 与 `gaussian-wrapping` 时，建议提前构建 tools profile：
 
 ```powershell
-docker compose --profile tools build colmap-worker langsplat-worker gaussian-wrapping-worker
+docker compose --profile tools build colmap-worker langsplat-worker gaussian-wrapping-worker 3dgs-to-pc-worker
 ```
 
 构建 `gaussian-wrapping-worker` 需 BuildKit。失败时先执行：
@@ -88,7 +88,7 @@ jobs/{job_id}/
 - 全局默认：`visionary_tasks/configs/{stage}/default.yaml`
 - 单任务配置：`jobs/{job_id}/config/{stage}.yaml`
 
-阶段标识：`colmap`、`3dgs`、`langsplat`、`gaussian-wrapping`。
+阶段标识：`colmap`、`3dgs`、`langsplat`、`gaussian-wrapping`、`3dgs-to-pc`。
 
 ## API 调用链路
 
@@ -106,6 +106,22 @@ jobs/{job_id}/
   "preset": "standard"
 }
 ```
+
+从已有 native 3DGS ply 提取几何 mesh：
+
+```json
+{
+  "outputs": ["mesh"],
+  "options": {
+    "input_mode": "native_3dgs_ply",
+    "iteration": 30000
+  }
+}
+```
+
+此模式上传一个 `point_cloud.ply`，仅规划 `3dgs-to-pc` 阶段，产物为 `mesh`，文件 `output/mesh_poisson.ply`。
+
+图片全流程使用 `gaussian-wrapping` 提取 mesh，可产出 `mesh` 与 `mesh_textured`。
 
 ## 常见问题
 

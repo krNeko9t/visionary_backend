@@ -154,10 +154,16 @@ def main():
     parser.add_argument("--texture_sh_degree", type=int, default=0)
     parser.add_argument("--apply_decimation", action="store_true")
     parser.add_argument("--decimate_ratio", type=float, default=0.3)
+    parser.add_argument(
+        "--extraction_only",
+        action="store_true",
+        help="Only extract geometry mesh and skip COLMAP validation and texture refinement.",
+    )
     args, raw_unknown = parser.parse_known_args(sys.argv[1:])
 
     shared = parse_shared_data_args(raw_unknown)
-    check_colmap_layout(shared.source_path)
+    if not args.extraction_only:
+        check_colmap_layout(shared.source_path)
     _, has_gaussian_features = check_native_point_cloud(shared.model_path, args.iteration)
     cfg_path, cfg_created = ensure_cfg_args(
         model_path=shared.model_path,
@@ -253,6 +259,10 @@ def main():
             print("[ERROR] Mesh decimation failed. Aborting texture refinement.")
             sys.exit(result.returncode)
         mesh_path = mesh_path.replace(".ply", "_decimated_with_blender.ply")
+
+    if args.extraction_only:
+        print(f"[INFO] Extraction-only mode complete. Mesh saved to: {mesh_path}")
+        sys.exit(0)
 
     print("[INFO] Step 2/2: Refining mesh texture...")
     texture_cmd = [

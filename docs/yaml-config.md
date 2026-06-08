@@ -1,6 +1,6 @@
 ﻿# YAML 阶段参数配置
 
-四个算法阶段的参数通过 YAML 管理，由 stage 实现读取后转换为 worker 命令参数。
+各算法阶段的参数通过 YAML 管理，由 stage 实现读取后转换为 worker 命令参数。
 
 ## 配置文件位置
 
@@ -9,7 +9,7 @@
 | 全局默认 | `visionary_tasks/configs/{stage}/default.yaml` | 所有新任务的初始值 |
 | 单任务 | `data/jobs/{job_id}/config/{stage}.yaml` | 创建时物化，可手动修改 |
 
-`{stage}` 取值：`colmap`、`3dgs`、`langsplat`、`gaussian-wrapping`。
+`{stage}` 取值：`colmap`、`3dgs`、`langsplat`、`gaussian-wrapping`、`3dgs-to-pc`。
 
 创建任务时写入 job 目录。之后修改全局 default 不影响已有 job。
 
@@ -63,6 +63,12 @@
 - 创建任务时自动对齐 3DGS 的 `output_iteration`
 - 每次执行时从 3DGS job config 再次同步
 
+**3dgs-to-pc `extraction.iteration`**
+
+- `native_3dgs_ply` 模式创建任务时对齐 `spec.options.iteration`
+- 每次执行时从 3DGS job config 再次同步
+- 决定读取的 PLY 路径 `output/point_cloud/iteration_{N}/point_cloud.ply`
+
 **GW 产物文件名**
 
 - `outputs.mesh_ply_names` 与 `outputs.mesh_textured_ply_names` 须与实际输出一致
@@ -77,6 +83,8 @@
 **langsplat**：`runtime`、`preprocess`、`model`、`optimization`、`pipeline`、`training` 对应 LangSplatV2 的 `preprocess.py` 与 `train.py`。
 
 **gaussian-wrapping**：`extraction`、`texture`、`decimation`、`outputs` 对应 `extract_and_texture_from_native_3dgs.py`。
+
+**3dgs-to-pc**：`extraction`、`outputs` 对应 `scripts/ply_to_mesh.py`。
 
 ## 关键参数
 
@@ -123,6 +131,17 @@
 | `texture.texture_n_iter` | `1000` | 纹理优化步数 |
 | `decimation.apply_decimation` | `false` | 纹理前减面 |
 | `decimation.decimate_ratio` | `0.3` | 保留面数比例 |
+| `outputs.mesh_ply_names` | 见 default | executor 查找 mesh 的文件名 |
+
+### 3dgs-to-pc
+
+| 参数 | 默认 | 作用 |
+|------|------|------|
+| `extraction.iteration` | `30000` | 读取哪一步的 3DGS PLY |
+| `extraction.num_points` | `5000000` | 稠密点云采样数量 |
+| `extraction.min_opacity` | `0.05` | 过滤低不透明度高斯 |
+| `extraction.poisson_depth` | `10` | Poisson 重建深度 |
+| `extraction.clean_pointcloud` | `true` | 点云统计去噪 |
 | `outputs.mesh_ply_names` | 见 default | executor 查找 mesh 的文件名 |
 
 ## Worker 镜像

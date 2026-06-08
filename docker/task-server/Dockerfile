@@ -27,6 +27,7 @@ RUN pip install --no-cache-dir --upgrade pip \
         docker \
         pyyaml \
         ninja \
+        trimesh \
     && pip install --no-cache-dir /workspace/gaussian-splatting/submodules/diff-gaussian-rasterization --no-build-isolation \
     && pip install --no-cache-dir /workspace/gaussian-splatting/submodules/simple-knn --no-build-isolation
 

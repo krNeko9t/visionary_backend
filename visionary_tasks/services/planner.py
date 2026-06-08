@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from ..domain.input_modes import get_input_mode, is_native_3dgs_ply_mode
 from ..domain.jobs import JobSpec
+from ..domain.mesh_formats import validate_mesh_export_options
 from ..domain.pipeline import (
     INPUT_MODE_DEFINITIONS,
     KNOWN_OUTPUT_IDS,
@@ -33,6 +34,8 @@ def plan_pipeline(spec: JobSpec) -> PipelinePlan:
 
     if spec.preset not in PRESETS:
         raise ValueError(f"未知 preset: {spec.preset}")
+
+    validate_mesh_export_options(spec)
 
     outputs = list(spec.outputs)
     if spec.options.get("language_features") and "language_model" not in outputs:

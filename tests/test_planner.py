@@ -65,3 +65,43 @@ def test_advanced_stage_override_requires_dependencies():
 def test_unknown_output_rejected():
     with pytest.raises(ValueError, match="未知输出类型"):
         plan_pipeline(JobSpec(outputs=["unknown"]))
+
+
+def test_mesh_formats_accepts_supported_formats():
+    plan = plan_pipeline(
+        JobSpec(
+            outputs=["mesh"],
+            options={"mesh_formats": ["ply", "obj", "glb"]},
+        )
+    )
+    assert plan.stages == ("colmap", "3dgs", "gaussian-wrapping")
+
+
+def test_mesh_formats_rejects_unknown_format():
+    with pytest.raises(ValueError, match="不支持的 mesh 格式"):
+        plan_pipeline(
+            JobSpec(
+                outputs=["mesh"],
+                options={"mesh_formats": ["stl"]},
+            )
+        )
+
+
+def test_mesh_formats_requires_mesh_output():
+    with pytest.raises(ValueError, match="mesh_formats 仅能在 outputs 包含 mesh 时使用"):
+        plan_pipeline(
+            JobSpec(
+                outputs=["point_cloud"],
+                options={"mesh_formats": ["obj"]},
+            )
+        )
+
+
+def test_mesh_formats_rejects_empty_list():
+    with pytest.raises(ValueError, match="必须是非空列表"):
+        plan_pipeline(
+            JobSpec(
+                outputs=["mesh"],
+                options={"mesh_formats": []},
+            )
+        )

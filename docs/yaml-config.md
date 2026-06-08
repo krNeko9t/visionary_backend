@@ -1,4 +1,4 @@
-﻿# YAML 阶段参数配置
+# YAML 阶段参数配置
 
 各算法阶段的参数通过 YAML 管理，由 stage 实现读取后转换为 worker 命令参数。
 
@@ -147,3 +147,8 @@
 ## Worker 镜像
 
 镜像名在 `config/*.yaml` 的 `worker_image` 或 `runtime.worker_image` 中配置，也可通过 compose 环境覆盖。
+
+## mesh 格式导出
+
+`spec.options.mesh_formats` 控制 mesh 派生格式，不属于 stage YAML 参数，也不会写入 `config/*.yaml`。默认 `["ply"]` 仅保留 worker 原始 PLY；需要 OBJ 或 GLB 时在创建任务的 `spec.options` 中指定。
+

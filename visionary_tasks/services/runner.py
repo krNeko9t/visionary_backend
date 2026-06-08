@@ -3,11 +3,15 @@ from __future__ import annotations
 import logging
 
 from ..domain.jobs import JobState, StageState, now_iso
+from ..domain.mesh_formats import needs_mesh_export
 from ..jobs.paths import JobPaths
 from ..jobs.storage import read_job_state, write_job_state
 from ..settings import Settings
 from ..stages.registry import check_stage_inputs, get_stage_runner
+from .mesh_export import export_mesh_artifacts
 from .progress import compute_job_progress, derive_current_stage, derive_error, derive_job_status
+
+MESH_EXPORT_STAGE_IDS = frozenset({"gaussian-wrapping", "3dgs-to-pc"})
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +50,17 @@ def run_job(settings: Settings, paths: JobPaths) -> None:
                 _refresh_state(state, paths)
                 return
 
+            artifacts = list(result.artifacts)
+            if stage_id in MESH_EXPORT_STAGE_IDS and needs_mesh_export(state.spec):
+                export_result = export_mesh_artifacts(state.spec, paths, artifacts)
+                if export_result.error:
+                    _set_stage(state, stage_id, "error", error=export_result.error)
+                    _refresh_state(state, paths)
+                    return
+                artifacts.extend(export_result.artifacts)
+
             _set_stage(state, stage_id, "done", progress=1.0)
-            _merge_artifacts(state, result.artifacts)
+            _merge_artifacts(state, artifacts)
             _refresh_state(state, paths)
     except Exception as exc:  # noqa: BLE001
         logger.exception("Job %s failed", paths.job_id)

@@ -6,6 +6,7 @@ from typing import Any
 
 from ..config.loader import deep_merge, materialize_job_configs
 from ..domain.input_modes import get_iteration, is_native_3dgs_ply_mode
+from ..domain.mesh_formats import SUPPORTED_MESH_FORMATS
 from ..domain.jobs import JobSpec, JobState, ProgressEvent, now_iso
 from ..domain.pipeline import INPUT_MODE_DEFINITIONS, OUTPUT_DEFINITIONS, PRESETS, STAGE_DEFINITIONS
 from ..jobs.paths import JobPaths
@@ -117,6 +118,7 @@ class JobService:
     @staticmethod
     def capabilities() -> dict[str, Any]:
         return {
+            "mesh_formats": sorted(SUPPORTED_MESH_FORMATS),
             "input_modes": [
                 {
                     "id": mode.id,

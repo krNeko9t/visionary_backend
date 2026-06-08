@@ -1,4 +1,4 @@
-﻿# 后端 API 对接指南
+# 后端 API 对接指南
 
 本文说明 Task Server 对外 API 的设计与调用方式。
 
@@ -33,7 +33,7 @@
 
 `GET /api/v1/capabilities`
 
-返回支持的 `outputs`、`presets`、`stages`。
+返回支持的 `outputs`、`presets`、`stages`、`mesh_formats`。
 
 ### 创建任务
 
@@ -53,7 +53,8 @@
   "outputs": ["point_cloud"],
   "preset": "standard",
   "options": {
-    "language_features": false
+    "language_features": false,
+    "mesh_formats": ["ply"]
   },
   "advanced": {
     "stages": ["colmap", "3dgs"],
@@ -70,7 +71,7 @@
 
 - `outputs`：必填，目标产物列表
 - `preset`：质量预设，可选 `standard`、`small`、`mid`、`high`
-- `options`：业务选项
+- `options`：业务选项。`mesh_formats` 控制 mesh 导出格式，默认 `["ply"]`，可选 `ply`、`obj`、`glb`。仅 `outputs` 包含 `mesh` 时可设置
 - `advanced`：调试用途，可显式指定阶段列表与阶段配置覆盖
 
 返回示例：
@@ -110,7 +111,11 @@
 |-------------|------|
 | `point_cloud` | 3DGS 点云 ply |
 | `mesh` | mesh ply |
+| `mesh_obj` | mesh OBJ |
+| `mesh_glb` | mesh GLB |
 | `mesh_textured` | 带纹理 mesh ply |
+| `mesh_textured_obj` | 带纹理 mesh OBJ |
+| `mesh_textured_glb` | 带纹理 mesh GLB |
 | `language_model` | LangSplat 模型目录，不可下载 |
 
 ### 下载产物

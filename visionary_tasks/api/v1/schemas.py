@@ -134,6 +134,7 @@ class EventListResponse(BaseModel):
 
 
 class CapabilitiesResponse(BaseModel):
+    mesh_formats: list[str] = Field(default_factory=list)
     input_modes: list[dict[str, Any]] = Field(default_factory=list)
     outputs: list[dict[str, Any]]
     presets: list[dict[str, Any]]

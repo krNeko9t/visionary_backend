@@ -1,4 +1,4 @@
-﻿# Jobs 目录与 Worker 产物
+# Jobs 目录与 Worker 产物
 
 本文说明单个任务目录的文件结构，以及各 worker 的输入要求与产出位置。
 
@@ -113,6 +113,26 @@ jobs/{job_id}/
 
 - `mesh` → mesh ply 路径
 
+
+
+## mesh 多格式导出
+
+`gaussian-wrapping` 与 `3dgs-to-pc` 均产出 PLY mesh。若 `spec.options.mesh_formats` 包含 `obj` 或 `glb`，Task Server 在对应 mesh 阶段完成后将 PLY 转换为派生产物，写入与源 PLY 同目录：
+
+| artifact_id | 文件 | 说明 |
+|-------------|------|------|
+| `mesh` | 原始 mesh ply | worker 产物 |
+| `mesh_obj` | `mesh.obj` | PLY 转换 |
+| `mesh_glb` | `mesh.glb` | PLY 转换 |
+| `mesh_textured` | 原始 textured ply | 仅 gaussian-wrapping |
+| `mesh_textured_obj` | `mesh_textured.obj` | PLY 转换 |
+| `mesh_textured_glb` | `mesh_textured.glb` | PLY 转换 |
+
+下载示例：
+
+- `GET /api/v1/jobs/{job_id}/artifacts/mesh_glb/download`
+- `GET /api/v1/jobs/{job_id}/artifacts/mesh_textured_glb/download`
+
 ## 下载接口
 
 产物通过 artifact id 下载：
@@ -120,6 +140,7 @@ jobs/{job_id}/
 - `GET /api/v1/jobs/{job_id}/artifacts/point_cloud/download`
 - `GET /api/v1/jobs/{job_id}/artifacts/mesh/download`
 - `GET /api/v1/jobs/{job_id}/artifacts/mesh_textured/download`
+- `GET /api/v1/jobs/{job_id}/artifacts/mesh_glb/download`
 
 ## native_3dgs_ply 模式
 

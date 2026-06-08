@@ -77,7 +77,6 @@ def materialize_stage_config(
 
 
 def load_stage_config(stage_id: str, settings: Settings, paths: JobPaths) -> Any:
-    del settings
     config_path = paths.stage_config_path(stage_id)
     if not config_path.exists():
         return materialize_stage_config(stage_id, paths)

@@ -3,7 +3,7 @@ const apiBase = window.location.hostname === "localhost" || window.location.host
   : (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000");
 
 const inputModeGroup = document.getElementById("inputModeGroup");
-const presetSelect = document.getElementById("presetSelect");
+const stagePresetGroup = document.getElementById("stagePresetGroup");
 const outputGroup = document.getElementById("outputGroup");
 const meshFormatsBlock = document.getElementById("meshFormatsBlock");
 const meshFormatGroup = document.getElementById("meshFormatGroup");
@@ -133,9 +133,20 @@ function renderCapabilities(data) {
     </label>
   `).join("");
 
-  presetSelect.innerHTML = (data.presets || []).map((preset) => `
-    <option value="${preset.id}">${preset.id}${preset.label ? ` - ${preset.label}` : ""}</option>
+  const stagePresets = data.stage_presets || {};
+  const stagePresetEntries = Object.entries(stagePresets).filter(([, presets]) => presets.length);
+  stagePresetGroup.innerHTML = stagePresetEntries.map(([stageId, presets]) => `
+    <div>
+      <strong>${stageId}</strong>
+      <p>
+        <select name="stagePreset" data-stage-id="${stageId}">
+          <option value="">default</option>
+          ${presets.map((preset) => `<option value="${preset}">${preset}</option>`).join("")}
+        </select>
+      </p>
+    </div>
   `).join("");
+  stagePresetGroup.classList.toggle("hidden", stagePresetEntries.length === 0);
 
   outputGroup.innerHTML = (data.outputs || []).map((output) => `
     <label class="block">
@@ -217,9 +228,18 @@ function buildSpec() {
     options.mesh_formats = meshFormats;
   }
 
+  const stage_presets = {};
+  for (const select of document.querySelectorAll('select[name="stagePreset"]')) {
+    if (select.value) {
+      stage_presets[select.dataset.stageId] = select.value;
+    }
+  }
+  if (Object.keys(stage_presets).length) {
+    options.stage_presets = stage_presets;
+  }
+
   return {
     outputs,
-    preset: presetSelect.value || "standard",
     options,
   };
 }

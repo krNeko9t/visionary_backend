@@ -9,7 +9,6 @@ from ..domain.pipeline import (
     KNOWN_STAGE_IDS,
     OUTPUT_DEFINITIONS,
     PLY_MODE_STAGE_ARTIFACTS,
-    PRESETS,
     STAGE_DEFINITIONS,
     PipelinePlan,
 )
@@ -31,9 +30,6 @@ def plan_pipeline(spec: JobSpec) -> PipelinePlan:
         raise ValueError(
             f"input_mode={input_mode} 不支持输出类型: {', '.join(disallowed)}"
         )
-
-    if spec.preset not in PRESETS:
-        raise ValueError(f"未知 preset: {spec.preset}")
 
     validate_mesh_export_options(spec)
 

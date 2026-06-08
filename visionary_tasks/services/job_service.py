@@ -4,11 +4,17 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from ..config.loader import deep_merge, materialize_job_configs
+from ..config.loader import (
+    deep_merge,
+    materialize_job_configs,
+    stage_presets_from_options,
+    validate_stage_presets,
+)
+from ..config.registry import STAGE_IDS, stage_preset_paths
 from ..domain.input_modes import get_iteration, is_native_3dgs_ply_mode
 from ..domain.mesh_formats import SUPPORTED_MESH_FORMATS
 from ..domain.jobs import JobSpec, JobState, ProgressEvent, now_iso
-from ..domain.pipeline import INPUT_MODE_DEFINITIONS, OUTPUT_DEFINITIONS, PRESETS, STAGE_DEFINITIONS
+from ..domain.pipeline import INPUT_MODE_DEFINITIONS, OUTPUT_DEFINITIONS, STAGE_DEFINITIONS
 from ..jobs.paths import JobPaths
 from ..jobs.storage import read_job_state, read_progress_events, write_job_state
 from ..settings import Settings
@@ -31,15 +37,15 @@ class JobService:
         job_id = uuid.uuid4().hex[:12]
         paths = JobPaths.from_settings(self.settings, job_id)
 
-        preset = spec.preset
-        gs_preset = PRESETS.get(preset, {}).get("gs_preset")
         stage_overrides = _build_stage_overrides(spec)
+        stage_presets = stage_presets_from_options(spec.options)
+        validate_stage_presets(stage_presets)
         gs_config = materialize_job_configs(
             self.settings,
             paths,
             stage_ids=list(plan.stages),
             overrides=stage_overrides,
-            preset=gs_preset,
+            stage_presets=stage_presets,
         )
         paths.ensure_layout(gs_config.output_relative)
         ingest_job_files(spec, files, paths, gs_config.output_relative)
@@ -137,9 +143,11 @@ class JobService:
                 }
                 for output in OUTPUT_DEFINITIONS.values()
             ],
-            "presets": [
-                {"id": preset_id, **payload} for preset_id, payload in PRESETS.items()
-            ],
+            "stage_presets": {
+                stage_id: sorted(stage_preset_paths(stage_id))
+                for stage_id in STAGE_IDS
+                if stage_preset_paths(stage_id)
+            },
             "stages": [
                 {
                     "id": stage.id,

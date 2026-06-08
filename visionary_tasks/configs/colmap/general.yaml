@@ -1,0 +1,7 @@
+converter:
+  camera: OPENCV
+  matcher: exhaustive
+  sift:
+    max_num_features: 16384
+  mapper:
+    ba_global_function_tolerance: 0.000001

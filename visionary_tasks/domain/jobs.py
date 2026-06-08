@@ -15,14 +15,12 @@ def now_iso() -> str:
 @dataclass
 class JobSpec:
     outputs: list[str]
-    preset: str = "standard"
     options: dict[str, Any] = field(default_factory=dict)
     advanced: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "outputs": list(self.outputs),
-            "preset": self.preset,
             "options": dict(self.options),
         }
         if self.advanced is not None:
@@ -36,7 +34,6 @@ class JobSpec:
             raise ValueError("spec.outputs 必须是列表")
         return cls(
             outputs=[str(item) for item in outputs],
-            preset=str(data.get("preset", "standard")),
             options=dict(data.get("options") or {}),
             advanced=dict(data["advanced"]) if data.get("advanced") else None,
         )

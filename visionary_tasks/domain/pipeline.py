@@ -124,10 +124,3 @@ INPUT_MODE_DEFINITIONS: dict[str, InputModeDefinition] = {
 
 KNOWN_STAGE_IDS = frozenset(STAGE_DEFINITIONS)
 KNOWN_OUTPUT_IDS = frozenset(OUTPUT_DEFINITIONS)
-
-PRESETS = {
-    "standard": {"label": "Standard quality"},
-    "small": {"label": "Small / fast", "gs_preset": "small"},
-    "mid": {"label": "Medium quality", "gs_preset": "mid"},
-    "high": {"label": "High quality", "gs_preset": "high"},
-}

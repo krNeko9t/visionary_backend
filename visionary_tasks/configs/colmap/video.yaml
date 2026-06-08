@@ -1,0 +1,8 @@
+converter:
+  camera: OPENCV
+  matcher: sequential
+  sift:
+    max_num_features: 16384
+  mapper:
+    multiple_models: 0
+    ba_global_function_tolerance: 0.000001

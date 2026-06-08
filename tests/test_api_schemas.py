@@ -5,11 +5,9 @@ from visionary_tasks.domain.jobs import Artifact, JobSpec, JobState, StageState
 def test_job_spec_request_to_domain():
     spec = JobSpecRequest(
         outputs=["mesh"],
-        preset="standard",
         options={"language_features": False},
     ).to_domain()
     assert spec.outputs == ["mesh"]
-    assert spec.preset == "standard"
 
 
 def test_job_status_response_from_state():

@@ -13,14 +13,12 @@ StageStatus = Literal["pending", "running", "done", "error", "skipped", "cancell
 
 class JobSpecRequest(BaseModel):
     outputs: list[str] = Field(min_length=1)
-    preset: str = "standard"
     options: dict[str, Any] = Field(default_factory=dict)
     advanced: dict[str, Any] | None = None
 
     def to_domain(self) -> JobSpec:
         return JobSpec(
             outputs=list(self.outputs),
-            preset=self.preset,
             options=dict(self.options),
             advanced=dict(self.advanced) if self.advanced else None,
         )
@@ -137,7 +135,7 @@ class CapabilitiesResponse(BaseModel):
     mesh_formats: list[str] = Field(default_factory=list)
     input_modes: list[dict[str, Any]] = Field(default_factory=list)
     outputs: list[dict[str, Any]]
-    presets: list[dict[str, Any]]
+    stage_presets: dict[str, list[str]]
     stages: list[dict[str, Any]]
 
 

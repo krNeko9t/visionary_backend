@@ -12,7 +12,7 @@ from ..settings.dgs_to_pc import DgsToPcJobConfig
 from ..settings.gaussian_wrapping import GaussianWrappingJobConfig
 from ..settings.gs import GsJobConfig
 from ..settings.langsplat import LangSplatJobConfig
-from .registry import CONFIG_FACTORIES, DEFAULT_CONFIG_PATHS, GS_PRESET_PATHS, STAGE_IDS
+from .registry import CONFIG_FACTORIES, STAGE_IDS, default_config_path, stage_preset_paths
 
 
 def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -35,6 +35,21 @@ def load_yaml(path: Path) -> dict[str, Any]:
     return payload
 
 
+def validate_stage_presets(stage_presets: dict[str, str]) -> None:
+    for stage_id, preset_name in stage_presets.items():
+        if stage_id not in STAGE_IDS:
+            raise ValueError(f"未知 stage: {stage_id}")
+        if preset_name not in stage_preset_paths(stage_id):
+            raise ValueError(f"未知 preset: {preset_name} (stage={stage_id})")
+
+
+def stage_presets_from_options(options: dict[str, Any]) -> dict[str, str]:
+    raw = options.get("stage_presets")
+    if not isinstance(raw, dict):
+        return {}
+    return {str(key): str(value) for key, value in raw.items()}
+
+
 def _write_job_config(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
@@ -47,9 +62,10 @@ def _resolve_stage_config(
     override: dict[str, Any] | None = None,
     preset: str | None = None,
 ) -> dict[str, Any]:
-    merged = load_yaml(DEFAULT_CONFIG_PATHS[stage_id])
-    if stage_id == "3dgs" and preset and preset in GS_PRESET_PATHS:
-        merged = deep_merge(merged, load_yaml(GS_PRESET_PATHS[preset]))
+    merged = load_yaml(default_config_path(stage_id))
+    preset_paths = stage_preset_paths(stage_id)
+    if preset and preset in preset_paths:
+        merged = deep_merge(merged, load_yaml(preset_paths[preset]))
     if paths is not None:
         job_config = paths.stage_config_path(stage_id)
         if job_config.exists():
@@ -96,15 +112,15 @@ def materialize_job_configs(
     paths: JobPaths,
     stage_ids: list[str],
     overrides: dict[str, dict[str, Any] | None] | None = None,
-    preset: str | None = None,
+    stage_presets: dict[str, str] | None = None,
 ) -> GsJobConfig:
     overrides = overrides or {}
-    gs_preset = preset if preset in GS_PRESET_PATHS else None
+    stage_presets = stage_presets or {}
     gs_config = materialize_stage_config(
         "3dgs",
         paths,
         override=overrides.get("3dgs"),
-        preset=gs_preset,
+        preset=stage_presets.get("3dgs"),
     )
     for stage_id in STAGE_IDS:
         if stage_id == "3dgs" or stage_id not in stage_ids:
@@ -117,7 +133,12 @@ def materialize_job_configs(
                 gs_output_iteration=gs_config.output_iteration,
             )
         else:
-            materialize_stage_config(stage_id, paths, override=overrides.get(stage_id))
+            materialize_stage_config(
+                stage_id,
+                paths,
+                override=overrides.get(stage_id),
+                preset=stage_presets.get(stage_id),
+            )
     return gs_config
 
 

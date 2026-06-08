@@ -4,6 +4,7 @@ worker_image: visionary-colmap-worker:local
 
 converter:
   camera: OPENCV
+  matcher: exhaustive
   no_gpu: false
   skip_matching: false
   resize: false

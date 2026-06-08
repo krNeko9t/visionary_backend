@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable
 
@@ -10,22 +11,9 @@ from ..settings.gs import GsJobConfig
 from ..settings.langsplat import LangSplatJobConfig
 
 _PACKAGE_ROOT = Path(__file__).resolve().parent.parent
+_CONFIGS_ROOT = _PACKAGE_ROOT / "configs"
 
 STAGE_IDS = ("colmap", "3dgs", "langsplat", "gaussian-wrapping", "3dgs-to-pc")
-
-DEFAULT_CONFIG_PATHS: dict[str, Path] = {
-    "colmap": _PACKAGE_ROOT / "configs" / "colmap" / "default.yaml",
-    "3dgs": _PACKAGE_ROOT / "configs" / "3dgs" / "default.yaml",
-    "langsplat": _PACKAGE_ROOT / "configs" / "langsplat" / "default.yaml",
-    "gaussian-wrapping": _PACKAGE_ROOT / "configs" / "gaussian-wrapping" / "default.yaml",
-    "3dgs-to-pc": _PACKAGE_ROOT / "configs" / "3dgs-to-pc" / "default.yaml",
-}
-
-GS_PRESET_PATHS: dict[str, Path] = {
-    "small": _PACKAGE_ROOT / "configs" / "3dgs" / "small.yaml",
-    "mid": _PACKAGE_ROOT / "configs" / "3dgs" / "mid.yaml",
-    "high": _PACKAGE_ROOT / "configs" / "3dgs" / "high.yaml",
-}
 
 ConfigFactory = Callable[[dict[str, Any]], Any]
 
@@ -36,3 +24,23 @@ CONFIG_FACTORIES: dict[str, ConfigFactory] = {
     "gaussian-wrapping": GaussianWrappingJobConfig.from_merged_dict,
     "3dgs-to-pc": DgsToPcJobConfig.from_merged_dict,
 }
+
+
+def stage_config_dir(stage_id: str) -> Path:
+    return _CONFIGS_ROOT / stage_id
+
+
+def default_config_path(stage_id: str) -> Path:
+    return stage_config_dir(stage_id) / "default.yaml"
+
+
+@lru_cache
+def stage_preset_paths(stage_id: str) -> dict[str, Path]:
+    directory = stage_config_dir(stage_id)
+    if not directory.is_dir():
+        return {}
+    return {
+        path.stem: path
+        for path in sorted(directory.glob("*.yaml"))
+        if path.name != "default.yaml"
+    }

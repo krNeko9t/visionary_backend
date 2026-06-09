@@ -115,7 +115,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             gt_language_feature, language_feature_mask = viewpoint_cam.get_language_feature(language_feature_dir=dataset.lf_path, feature_level=dataset.feature_level)
             # In this paper, we select layer_num = 1
             layer_num, _, _ = gaussians.get_language_feature_codebooks.shape
-            layer_idx = min(int(iteration / 10000 * layer_num), layer_num - 1)
+            layer_idx = min(int(iteration / opt.iterations * layer_num), layer_num - 1)
             language_feature = gaussians.compute_layer_feature_map(language_feature_weight_map, layer_idx)
             if args.normalize:
                 language_feature = language_feature / (language_feature.norm(dim=0, keepdim=True) + 1e-10)
@@ -178,9 +178,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             if (iteration in checkpoint_iterations):
                 print("\n[ITER {}] Saving Checkpoint".format(iteration))
                 torch.save((gaussians.capture(opt.include_feature), iteration), scene.model_path + "/chkpnt" + str(iteration) + ".pth")
-                if iteration == 10000:
-                    return
-            
+
 def prepare_output_and_logger(args):    
     if not args.model_path:
         if os.getenv('OAR_JOB_ID'):

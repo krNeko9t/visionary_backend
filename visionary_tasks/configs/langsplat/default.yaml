@@ -22,7 +22,7 @@ model:
   eval: false
 
 optimization:
-  iterations: 30000
+  iterations: 10000
   position_lr_init: 0.00016
   position_lr_final: 0.0000016
   position_lr_delay_mult: 0.01
@@ -50,9 +50,9 @@ pipeline:
   debug: false
 
 training:
-  test_iterations: [2000, 4000, 6000, 8000, 10000, 30000]
-  save_iterations: [2000, 4000, 6000, 8000, 10000, 30000]
-  checkpoint_iterations: [2000, 4000, 6000, 8000, 10000, 30000]
+  test_iterations: [2000, 6000, 10000]
+  save_iterations: [2000, 6000, 10000]
+  checkpoint_iterations: [2000, 6000, 10000]
   cos_loss: true
   l1_loss: false
   normalize: false

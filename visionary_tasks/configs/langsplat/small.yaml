@@ -1,0 +1,21 @@
+# LangSplatV2：preprocess.py + train.py
+# source_path / model_path / start_checkpoint 由 executor 注入
+preprocess:
+  resolution: 256
+  sam_ckpt_path: ckpts/sam_vit_h_4b8939.pth
+
+model:
+  sh_degree: 3
+  resolution: 256
+  white_background: false
+  feature_level: 0
+
+optimization:
+  iterations: 10000
+  position_lr_max_steps: 10000
+
+training:
+  test_iterations: [2000, 6000, 10000]
+  save_iterations: [2000, 6000, 10000]
+  checkpoint_iterations: [2000, 6000, 10000]
+  topk: 4

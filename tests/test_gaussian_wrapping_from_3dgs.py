@@ -7,6 +7,9 @@ from visionary_tasks.settings.gaussian_wrapping import GaussianWrappingJobConfig
 from visionary_tasks.stages.gaussian_wrapping.build_extract_command import (
     build_extract_command,
 )
+from visionary_tasks.stages.gaussian_wrapping.predict_output_names import (
+    predict_output_names,
+)
 from visionary_tasks.stages.gaussian_wrapping.resolve_3dgs_output_for_extract import (
     ExtractInputs,
     resolve,
@@ -39,6 +42,52 @@ def test_default_yaml_has_no_upstream_fields():
     extraction = payload["extraction"]
     assert "iteration" not in extraction
     assert "resolution" not in extraction
+    assert "outputs" not in payload
+
+
+def test_predict_output_names_default():
+    config = GaussianWrappingJobConfig.from_merged_dict({})
+    predicted = predict_output_names(config)
+    assert predicted.mesh_ply == "mesh_ours_2pivots_post.ply"
+    assert predicted.mesh_textured_ply == "mesh_ours_2pivots_post_texture_refined_999.ply"
+
+
+def test_predict_output_names_follows_texture_n_iter():
+    config = GaussianWrappingJobConfig.from_merged_dict(
+        {"texture": {"texture_n_iter": 5000}}
+    )
+    predicted = predict_output_names(config)
+    assert predicted.mesh_textured_ply == "mesh_ours_2pivots_post_texture_refined_4999.ply"
+
+
+def test_predict_output_names_follows_extraction_and_decimation():
+    config = GaussianWrappingJobConfig.from_merged_dict(
+        {
+            "extraction": {
+                "sdf_mode": "exact_computation",
+                "n_pivots": 3,
+                "isosurface_value": 0.1,
+                "postprocess": True,
+            },
+            "decimation": {"apply_decimation": True},
+            "texture": {"texture_n_iter": 100},
+        }
+    )
+    predicted = predict_output_names(config)
+    assert predicted.mesh_ply == (
+        "mesh_exact_computation_3pivots_transmittance_threshold_0.6_post_decimated_with_blender.ply"
+    )
+    assert predicted.mesh_textured_ply == (
+        "mesh_exact_computation_3pivots_transmittance_threshold_0.6_post_decimated_with_blender"
+        "_texture_refined_99.ply"
+    )
+
+
+def test_predict_output_names_extraction_only():
+    config = GaussianWrappingJobConfig.from_merged_dict({"texture_enabled": False})
+    predicted = predict_output_names(config)
+    assert predicted.mesh_ply == "mesh_ours_2pivots_post.ply"
+    assert predicted.mesh_textured_ply is None
 
 
 def test_resolve_reads_3dgs_output_iteration(tmp_path: Path):

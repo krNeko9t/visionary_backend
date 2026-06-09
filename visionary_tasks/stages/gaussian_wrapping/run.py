@@ -12,6 +12,7 @@ from ...workers.adapters.docker import build_job_volumes, run_docker_worker
 from ...workers.contract import WorkerResult, make_progress_event
 from ..inputs import missing_gaussian_wrapping_inputs
 from .build_extract_command import build_extract_command
+from .predict_output_names import predict_output_names
 from .resolve_3dgs_output_for_extract import resolve
 
 STAGE_ID = "gaussian-wrapping"
@@ -47,17 +48,24 @@ def run(settings: Settings, paths: JobPaths) -> WorkerResult:
         label="gaussian-wrapping",
     )
 
-    mesh_ply_names = tuple(config.outputs.mesh_ply_names)
-    mesh_textured_ply_names = tuple(config.outputs.mesh_textured_ply_names)
-    mesh_ply = paths.wrapping_mesh_ply(output_relative, mesh_ply_names)
-    mesh_textured_ply = paths.wrapping_mesh_textured_ply(output_relative, mesh_textured_ply_names)
+    predicted = predict_output_names(config)
+    mesh_ply = paths.wrapping_mesh_ply(output_relative, (predicted.mesh_ply,))
+    mesh_textured_ply = None
+    if predicted.mesh_textured_ply is not None:
+        mesh_textured_ply = paths.wrapping_mesh_textured_ply(
+            output_relative,
+            (predicted.mesh_textured_ply,),
+        )
     if mesh_ply is None and mesh_textured_ply is None:
+        expected = [predicted.mesh_ply]
+        if predicted.mesh_textured_ply is not None:
+            expected.append(predicted.mesh_textured_ply)
         return WorkerResult(
             stage_id=STAGE_ID,
             status="error",
             error=(
                 "gaussian-wrapping 未生成 mesh 文件，"
-                f"已检查: {mesh_ply_names}, {mesh_textured_ply_names}"
+                f"已检查: {expected}"
             ),
         )
 

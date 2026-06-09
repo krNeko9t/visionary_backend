@@ -1,0 +1,10 @@
+# 3dgs → GW extract：iteration 由 resolve_3dgs_output_for_extract 从 3dgs output_iteration 解析
+# source_path / model_path 由 executor 注入（/job/colmap、/job/output）
+worker_image: gaussian-wrapping:latest
+
+extraction:
+  isosurface_value: 0.1
+
+decimation:
+  apply_decimation: true
+  decimate_ratio: 0.3

@@ -1,0 +1,11 @@
+# 3dgs → GW extract：iteration 由 resolve_3dgs_output_for_extract 从 3dgs output_iteration 解析
+# source_path / model_path 由 executor 注入（/job/colmap、/job/output）
+worker_image: gaussian-wrapping:latest
+
+extraction:
+  rasterizer: ours
+  sdf_mode: exact_computation
+  n_pivots: 3
+  n_binary_steps: 15
+  isosurface_value: 0.1
+  dtype: int32

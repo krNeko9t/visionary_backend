@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any
 
 EXTRACT_SCRIPT = "gaussian_wrapping/scripts/extract_and_texture_from_native_3dgs.py"
@@ -37,25 +37,15 @@ class GaussianWrappingDecimationConfig:
 
 
 @dataclass
-class GaussianWrappingOutputsConfig:
-    mesh_ply_names: list[str] = field(default_factory=lambda: ["mesh_ours_2pivots_post.ply"])
-    mesh_textured_ply_names: list[str] = field(
-        default_factory=lambda: ["mesh_ours_2pivots_post_texture_refined_999.ply"]
-    )
-
-
-@dataclass
 class GaussianWrappingJobConfig:
     worker_image: str
     extraction: GaussianWrappingExtractionConfig
     texture: GaussianWrappingTextureConfig
     decimation: GaussianWrappingDecimationConfig
-    outputs: GaussianWrappingOutputsConfig
     texture_enabled: bool = True
 
     @classmethod
     def from_merged_dict(cls, payload: dict[str, Any]) -> "GaussianWrappingJobConfig":
-        outputs_payload = dict(payload.get("outputs") or {})
         extraction_payload = {
             key: value
             for key, value in dict(payload.get("extraction") or {}).items()
@@ -66,13 +56,6 @@ class GaussianWrappingJobConfig:
             extraction=GaussianWrappingExtractionConfig(**extraction_payload),
             texture=GaussianWrappingTextureConfig(**dict(payload.get("texture") or {})),
             decimation=GaussianWrappingDecimationConfig(**dict(payload.get("decimation") or {})),
-            outputs=GaussianWrappingOutputsConfig(
-                mesh_ply_names=list(outputs_payload.get("mesh_ply_names") or ["mesh_ours_2pivots_post.ply"]),
-                mesh_textured_ply_names=list(
-                    outputs_payload.get("mesh_textured_ply_names")
-                    or ["mesh_ours_2pivots_post_texture_refined_999.ply"]
-                ),
-            ),
             texture_enabled=bool(payload.get("texture_enabled", True)),
         )
 
@@ -82,6 +65,5 @@ class GaussianWrappingJobConfig:
             "extraction": asdict(self.extraction),
             "texture": asdict(self.texture),
             "decimation": asdict(self.decimation),
-            "outputs": asdict(self.outputs),
             "texture_enabled": self.texture_enabled,
         }

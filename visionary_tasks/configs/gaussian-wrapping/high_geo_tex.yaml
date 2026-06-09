@@ -4,22 +4,14 @@ worker_image: gaussian-wrapping:latest
 
 extraction:
   rasterizer: ours
-  sdf_mode: ours
-  n_pivots: 2
-  n_binary_steps: 10
-  isosurface_value: 0.0
+  sdf_mode: exact_computation
+  n_pivots: 3
+  n_binary_steps: 15
+  isosurface_value: 0.1
   dtype: int32
-  use_valid_mask: true
-  postprocess: true
-  filter_large_edges: true
-  mesh: null
 
 texture:
-  texture_n_iter: 1000
-  texture_lr: 0.0025
+  texture_n_iter: 5000
+  texture_lr: 0.001
   texture_lambda_dssim: 0.2
   texture_sh_degree: 0
-
-decimation:
-  apply_decimation: false
-  decimate_ratio: 0.3

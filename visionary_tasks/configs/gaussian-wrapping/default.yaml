@@ -1,10 +1,8 @@
-# GaussianWrapping：extract_and_texture_from_native_3dgs.py
+# 3dgs → GW extract：iteration 由 resolve_3dgs_output_for_extract 从 3dgs output_iteration 解析
 # source_path / model_path 由 executor 注入（/job/colmap、/job/output）
-# iteration 应对齐 3DGS 的 training.output_iteration
 worker_image: gaussian-wrapping:latest
 
 extraction:
-  iteration: 500
   rasterizer: ours
   sdf_mode: ours
   n_pivots: 2
@@ -15,7 +13,6 @@ extraction:
   postprocess: true
   filter_large_edges: true
   mesh: null
-  resolution: -1
 
 texture:
   texture_n_iter: 1000

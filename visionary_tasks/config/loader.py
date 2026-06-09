@@ -84,8 +84,6 @@ def materialize_stage_config(
 ) -> Any:
     merged = _resolve_stage_config(stage_id, paths=None, override=override, preset=preset)
     config = CONFIG_FACTORIES[stage_id](merged)
-    if stage_id == "gaussian-wrapping" and gs_output_iteration is not None:
-        config.sync_gs_iteration(gs_output_iteration)
     if stage_id == "3dgs-to-pc" and gs_output_iteration is not None:
         config.sync_iteration(gs_output_iteration)
     _write_job_config(paths.stage_config_path(stage_id), config.to_dict())
@@ -98,9 +96,6 @@ def load_stage_config(stage_id: str, settings: Settings, paths: JobPaths) -> Any
         return materialize_stage_config(stage_id, paths)
     merged = load_yaml(config_path)
     config = CONFIG_FACTORIES[stage_id](merged)
-    if stage_id == "gaussian-wrapping":
-        gs_config = load_stage_config("3dgs", settings, paths)
-        config.sync_gs_iteration(gs_config.output_iteration)
     if stage_id == "3dgs-to-pc":
         gs_config = load_stage_config("3dgs", settings, paths)
         config.sync_iteration(gs_config.output_iteration)
@@ -125,7 +120,7 @@ def materialize_job_configs(
     for stage_id in STAGE_IDS:
         if stage_id == "3dgs" or stage_id not in stage_ids:
             continue
-        if stage_id in ("gaussian-wrapping", "3dgs-to-pc"):
+        if stage_id == "3dgs-to-pc":
             materialize_stage_config(
                 stage_id,
                 paths,

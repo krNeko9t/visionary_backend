@@ -2,15 +2,17 @@ from __future__ import annotations
 
 import docker
 
-from ..config.loader import load_gaussian_wrapping_job_config, load_gs_job_config
-from ..container.mount import resolve_host_job_path
-from ..domain.jobs import Artifact
-from ..jobs.paths import JobPaths
-from ..jobs.storage import append_progress_event, write_worker_result
-from ..settings import Settings
-from ..workers.adapters.docker import build_job_volumes, run_docker_worker
-from ..workers.contract import WorkerResult, make_progress_event
-from .inputs import missing_gaussian_wrapping_inputs
+from ...config.loader import load_gaussian_wrapping_job_config, load_gs_job_config
+from ...container.mount import resolve_host_job_path
+from ...domain.jobs import Artifact
+from ...jobs.paths import JobPaths
+from ...jobs.storage import append_progress_event, write_worker_result
+from ...settings import Settings
+from ...workers.adapters.docker import build_job_volumes, run_docker_worker
+from ...workers.contract import WorkerResult, make_progress_event
+from ..inputs import missing_gaussian_wrapping_inputs
+from .build_extract_command import build_extract_command
+from .resolve_3dgs_output_for_extract import resolve
 
 STAGE_ID = "gaussian-wrapping"
 
@@ -24,6 +26,7 @@ def run(settings: Settings, paths: JobPaths) -> WorkerResult:
     stage_dir.mkdir(parents=True, exist_ok=True)
     config = load_gaussian_wrapping_job_config(settings, paths)
     gs_config = load_gs_job_config(settings, paths)
+    upstream = resolve(paths, gs_config)
     output_relative = gs_config.output_relative
 
     append_progress_event(
@@ -39,7 +42,7 @@ def run(settings: Settings, paths: JobPaths) -> WorkerResult:
 
     logs = run_docker_worker(
         image=config.worker_image,
-        command=config.to_container_command("/job/colmap", f"/job/{output_relative}"),
+        command=build_extract_command(config, upstream),
         volumes=build_job_volumes(host_job_path),
         label="gaussian-wrapping",
     )

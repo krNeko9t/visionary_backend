@@ -5,7 +5,8 @@ from collections.abc import Callable
 from ..jobs.paths import JobPaths
 from ..settings import Settings
 from ..workers.contract import WorkerResult
-from . import colmap, dgs_to_pc, gs, langsplat, mesh
+from . import colmap, dgs_to_pc, gs, langsplat
+from .gaussian_wrapping import run as gaussian_wrapping_run
 from .inputs import (
     missing_3dgs_inputs,
     missing_3dgs_to_pc_inputs,
@@ -21,7 +22,7 @@ STAGE_RUNNERS: dict[str, StageRunner] = {
     "colmap": colmap.run,
     "3dgs": gs.run,
     "langsplat": langsplat.run,
-    "gaussian-wrapping": mesh.run,
+    "gaussian-wrapping": gaussian_wrapping_run.run,
     "3dgs-to-pc": dgs_to_pc.run,
 }
 

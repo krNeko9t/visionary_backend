@@ -9,6 +9,22 @@ if TYPE_CHECKING:
     from docker import DockerClient
 
 
+def resolve_host_mount_path(
+    settings: Settings,
+    container_path: Path,
+    client: DockerClient,
+) -> Path:
+    task_container = client.containers.get(settings.task_server_container_name)
+    mounts = task_container.attrs.get("Mounts", [])
+    target = str(container_path).rstrip("/")
+    for mount in mounts:
+        destination = str(mount.get("Destination", "")).rstrip("/")
+        source = mount.get("Source")
+        if destination == target and source:
+            return Path(source)
+    raise RuntimeError(f"无法解析容器挂载的宿主机路径: {target}")
+
+
 def resolve_host_job_path(
     settings: Settings,
     job_root: Path,

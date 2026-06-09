@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import docker
 
 from ..config.loader import load_gs_job_config, load_langsplat_job_config
-from ..container.mount import resolve_host_job_path
+from ..container.mount import resolve_host_job_path, resolve_host_mount_path
 from ..domain.jobs import Artifact
 from ..jobs.paths import JobPaths
 from ..jobs.storage import append_progress_event, write_worker_result
@@ -34,12 +36,27 @@ def run(settings: Settings, paths: JobPaths) -> WorkerResult:
     client = docker.from_env()
     try:
         host_job_path = str(resolve_host_job_path(settings, paths.root, client))
+        ckpts_host = runtime.ckpts_host or str(
+            resolve_host_mount_path(settings, settings.ckpts_root, client)
+        )
     finally:
         client.close()
 
+    sam_ckpt_relative = config.preprocess.sam_ckpt_path.removeprefix("ckpts/")
+    sam_ckpt_file = Path(ckpts_host) / sam_ckpt_relative
+    if not sam_ckpt_file.is_file():
+        return WorkerResult(
+            stage_id=STAGE_ID,
+            status="error",
+            error=(
+                f"缺少 SAM 权重: {sam_ckpt_file}。"
+                "请按 README 下载 sam_vit_h_4b8939.pth 到项目 ckpts/ 目录，"
+                "并确保 task-server 已挂载 ./ckpts:/workspace/ckpts"
+            ),
+        )
+
     volumes = build_job_volumes(host_job_path, JOB_MOUNT)
-    if runtime.ckpts_host:
-        volumes = extend_volumes(volumes, {runtime.ckpts_host: {"bind": "/workspace/ckpts", "mode": "ro"}})
+    volumes = extend_volumes(volumes, {ckpts_host: {"bind": "/workspace/ckpts", "mode": "ro"}})
 
     preprocess_cmd = config.to_preprocess_command(f"{JOB_MOUNT}/colmap")
     run_docker_worker(

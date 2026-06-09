@@ -13,6 +13,7 @@ FROM ${PYTORCH_IMAGE}
 
 # docker build 默认无 GPU，必须显式指定架构，否则 torch/cpp_extension 里 arch_list 为空会报错
 ARG TORCH_CUDA_ARCH_LIST="7.0;7.5;8.0;8.6;8.9;9.0"
+ARG BLENDER_VERSION=4.0.2
 ENV TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST}
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -24,17 +25,37 @@ ENV DEBIAN_FRONTEND=noninteractive \
     NVDIFFRAST_USE_OPENGL=0
 
 # open3d：运行时需 libX11；nvdiffrast GL 插件：编译/运行需 EGL + GL 开发包
+# Blender：mesh_decimate.py（--apply_decimation）无头减面，版本与 milo_addon 一致
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     build-essential \
     ninja-build \
     zlib1g-dev \
+    wget \
+    xz-utils \
     libx11-6 \
     libgl1 \
     libglib2.0-0 \
     libegl1-mesa-dev \
     libgl1-mesa-dev \
     libgles2-mesa-dev \
+    libxrender1 \
+    libxi6 \
+    libxxf86vm1 \
+    libxfixes3 \
+    libxkbcommon0 \
+    libglu1-mesa \
+    libsm6 \
+    libice6 \
+    libfontconfig1 \
+    libfreetype6 \
+    libjpeg-turbo8 \
+    libpng16-16 \
+    && wget -q "https://download.blender.org/release/Blender4.0/blender-${BLENDER_VERSION}-linux-x64.tar.xz" \
+    && tar -xf "blender-${BLENDER_VERSION}-linux-x64.tar.xz" -C /opt \
+    && ln -sf "/opt/blender-${BLENDER_VERSION}-linux-x64/blender" /usr/local/bin/blender \
+    && rm "blender-${BLENDER_VERSION}-linux-x64.tar.xz" \
+    && blender --version \
     && rm -rf /var/lib/apt/lists/*
 
 # tetra_triangulation 的 CMake 在 CONDA_PREFIX 下查找 cnpy/CGAL。

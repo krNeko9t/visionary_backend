@@ -4,12 +4,9 @@
 runtime:
   worker_image: langsplatv2:pt241
   model_relative: langsplatv2
-  # 宿主机 ckpts 绝对路径；留空则自动从 task-server 的 ckpts_root 挂载解析
-  ckpts_host: ""
 
 preprocess:
   resolution: -1
-  sam_ckpt_path: ckpts/sam_vit_h_4b8939.pth
 
 model:
   sh_degree: 3

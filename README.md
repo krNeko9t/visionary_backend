@@ -74,6 +74,7 @@ jobs/{job_id}/
   colmap/
   output/
   langsplatv2/
+  langsplat_export/
 ```
 
 - `state/job.json`：任务状态、阶段状态、产物索引
@@ -81,7 +82,7 @@ jobs/{job_id}/
 - `config/*.yaml`：创建任务时物化的阶段配置
 - `stages/{stage_id}/result.json`：阶段标准结果
 - `events/{stage_id}.jsonl`：阶段进度事件
-- `colmap/`、`output/`、`langsplatv2/`：各 worker 实际产物目录
+- `colmap/`、`output/`、`langsplatv2/`、`langsplat_export/`：各 worker 实际产物目录
 
 ## YAML 配置
 
@@ -92,7 +93,7 @@ jobs/{job_id}/
 
 ## API 调用链路
 
-1. `GET /api/v1/capabilities`：查询支持的 outputs、preset、stages、mesh_formats
+1. `GET /api/v1/capabilities`：查询支持的 outputs、input modes、stage presets、stages、mesh_formats
 2. `POST /api/v1/jobs`：上传图片与 `spec`，创建任务
 3. `GET /api/v1/jobs/{job_id}`：轮询状态与进度
 4. `GET /api/v1/jobs/{job_id}/artifacts`：列出产物
@@ -102,8 +103,21 @@ jobs/{job_id}/
 
 ```json
 {
+  "outputs": ["point_cloud"]
+}
+```
+
+按阶段选择 YAML 预设：
+
+```json
+{
   "outputs": ["point_cloud"],
-  "preset": "standard"
+  "options": {
+    "stage_presets": {
+      "3dgs": "small",
+      "colmap": "fast"
+    }
+  }
 }
 ```
 

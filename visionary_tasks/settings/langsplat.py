@@ -19,13 +19,11 @@ TRAINING_SKIP = {"start_checkpoint"}
 class LangSplatRuntimeConfig:
     worker_image: str = "langsplatv2:pt241"
     model_relative: str = "langsplatv2"
-    ckpts_host: str = ""
 
 
 @dataclass
 class LangSplatPreprocessConfig:
     resolution: int = -1
-    sam_ckpt_path: str = "ckpts/sam_vit_h_4b8939.pth"
 
 
 @dataclass
@@ -158,12 +156,10 @@ class LangSplatJobConfig:
             return [int(level) for level in self.export.levels]
         return self.training_feature_levels()
 
-    def to_preprocess_command(self, dataset_path: str) -> list[str]:
+    def to_preprocess_command(self, dataset_path: str, *, sam_ckpt_path: str) -> list[str]:
         command = ["python", "preprocess.py", "--dataset_path", dataset_path]
-        for key, value in asdict(self.preprocess).items():
-            if key == "dataset_path":
-                continue
-            command.extend(format_cli_arg(key, value))
+        command.extend(format_cli_arg("resolution", self.preprocess.resolution))
+        command.extend(format_cli_arg("sam_ckpt_path", sam_ckpt_path))
         return command
 
     def to_train_command(

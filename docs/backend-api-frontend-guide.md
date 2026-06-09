@@ -19,6 +19,8 @@
 
 `spec.options.language_features: true` 时自动追加 `language_model` 输出。
 
+一次请求可以同时声明多个 `outputs`，服务端会按阶段并集合并规划结果。常规调用只需要传 `outputs` 和必要的 `options`；`advanced` 主要用于调试或精确覆盖阶段参数。
+
 ## API 列表
 
 ### 健康检查
@@ -33,7 +35,17 @@
 
 `GET /api/v1/capabilities`
 
-返回支持的 `outputs`、`presets`、`stages`、`mesh_formats`。
+返回支持的 `outputs`、`input_modes`、`stage_presets`、`stages`、`mesh_formats`。调用方应优先使用这个接口动态生成 UI 选项，不要在前端硬编码 preset 名称。
+
+关键字段：
+
+| 字段 | 说明 |
+|------|------|
+| `outputs` | 可请求的目标产物，含自动规划阶段提示 |
+| `input_modes` | 输入模式、允许文件类型、该模式下允许的 outputs |
+| `stage_presets` | 按 stage 分组的 YAML 预设，例如 `{"3dgs": ["high", "mid", "small"]}` |
+| `stages` | 阶段顺序、依赖与输入提示 |
+| `mesh_formats` | `spec.options.mesh_formats` 可选值 |
 
 ### 创建任务
 
@@ -51,10 +63,14 @@
 ```json
 {
   "outputs": ["point_cloud"],
-  "preset": "standard",
   "options": {
+    "input_mode": "images",
     "language_features": false,
-    "mesh_formats": ["ply"]
+    "mesh_formats": ["ply"],
+    "stage_presets": {
+      "3dgs": "small",
+      "colmap": "fast"
+    }
   },
   "advanced": {
     "stages": ["colmap", "3dgs"],
@@ -70,9 +86,12 @@
 ```
 
 - `outputs`：必填，目标产物列表
-- `preset`：质量预设，可选 `standard`、`small`、`mid`、`high`
-- `options`：业务选项。`mesh_formats` 控制 mesh 导出格式，默认 `["ply"]`，可选 `ply`、`obj`、`glb`。仅 `outputs` 包含 `mesh` 时可设置
-- `advanced`：调试用途，可显式指定阶段列表与阶段配置覆盖
+- `options.input_mode`：默认 `images`；可选值以 `GET /api/v1/capabilities` 返回为准
+- `options.stage_presets`：按 stage 选择 YAML 预设。不传时使用各 stage 的 `default.yaml`；不存在顶层 `preset` 字段
+- `options.language_features`：为 `true` 时自动追加 `language_model` 输出，仅支持 `images`
+- `options.mesh_formats`：控制 mesh 导出格式，默认 `["ply"]`，可选 `ply`、`obj`、`glb`。仅 `outputs` 包含 `mesh` 时可设置
+- `advanced.stages`：调试用途，可显式覆盖自动规划阶段；必须满足阶段依赖
+- `advanced.stage_overrides`：创建任务时覆盖阶段 YAML 参数，按字段 deep merge
 
 返回示例：
 
@@ -116,13 +135,23 @@
 | `mesh_textured` | 带纹理 mesh ply |
 | `mesh_textured_obj` | 带纹理 mesh OBJ |
 | `mesh_textured_glb` | 带纹理 mesh GLB |
-| `language_model` | LangSplat 模型目录，不可下载 |
+| `language_model` | LangSplat 最终导出目录，路径形如 `langsplat_export/chkpnt{N}/` |
 
 ### 下载产物
 
 `GET /api/v1/jobs/{job_id}/artifacts/{artifact_id}/download`
 
-返回文件流。仅 `downloadable: true` 的产物可下载。
+返回文件流。仅普通文件类型的 `downloadable: true` 产物适合直接下载。
+
+`language_model` 当前登记为目录型产物，状态接口会返回路径和 metadata，但下载接口使用文件流响应；调用方不要把它当单个文件直接下载。
+
+常见错误响应：
+
+| HTTP 状态 | 场景 |
+|-----------|------|
+| `400` | `spec` JSON 解析失败、字段校验失败、文件类型不支持、产物不可下载 |
+| `404` | job 不存在、artifact id 不存在、产物文件不存在 |
+| `409` | 任务尚未完成时下载尚未落盘的产物 |
 
 ### 查询进度事件
 
@@ -134,11 +163,11 @@
 
 `POST /api/v1/jobs/{job_id}/cancel`
 
-记录取消请求。执行中的 worker 将逐步支持响应取消。
+记录取消请求。取消是异步语义：任务会进入取消流程，但不保证正在运行的 worker 立刻停止。已经结束的任务不会被重新取消。
 
 ## 前端接入步骤
 
-1. 初始化时请求 `GET /api/v1/capabilities`，展示可选 outputs 与 preset
+1. 初始化时请求 `GET /api/v1/capabilities`，展示可选 outputs、input modes、stage presets 与 mesh formats
 2. 构建 `FormData`：图片写入 `files`，`spec` 序列化为 JSON 字符串
 3. 保存返回的 `job_id`，每 2 秒轮询 `GET /api/v1/jobs/{job_id}`
 4. 依据 `status` 更新界面：running 展示 `progress` 与 `current_stage_id`，done 开放下载，error 展示 `error`
@@ -159,7 +188,7 @@
     const files = Array.from(document.getElementById("files").files || []);
     if (!files.length) return log({ error: "请选择图片" });
 
-    const spec = { outputs: ["point_cloud"], preset: "standard" };
+    const spec = { outputs: ["point_cloud"] };
     const fd = new FormData();
     files.forEach((f) => fd.append("files", f));
     fd.append("spec", JSON.stringify(spec));
@@ -203,6 +232,8 @@
 图片全流程的 mesh 由 `gaussian-wrapping` 生成，可产出 `mesh` 与 `mesh_textured`。
 
 `native_3dgs_ply` 的 mesh 由 `3dgs-to-pc` 生成，从 PLY 采样稠密点云后做 Poisson 重建，产出 `mesh`，无纹理。
+
+`native_3dgs_ply` 模式必须上传恰好一个 `.ply` 文件。该文件需要是 native 3DGS point cloud，PLY header 至少包含 `x`、`y`、`z`、`opacity`、`f_dc_0`、`f_dc_1`、`f_dc_2`，并包含 `f_rest_*`、`scale_*`、`rot_*` 字段。
 
 ### 从已有 ply 提取 mesh
 

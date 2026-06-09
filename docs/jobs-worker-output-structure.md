@@ -16,6 +16,7 @@ jobs/{job_id}/
   colmap/
   output/
   langsplatv2/
+  langsplat_export/
 ```
 
 ## 固定目录含义
@@ -27,7 +28,7 @@ jobs/{job_id}/
 | `config/*.yaml` | 创建任务时物化的阶段配置 |
 | `stages/{stage_id}/result.json` | 阶段标准结果，含 artifact 列表 |
 | `events/{stage_id}.jsonl` | 阶段进度事件，每行一条 JSON |
-| `colmap/`、`output/`、`langsplatv2/` | worker 实际产物目录 |
+| `colmap/`、`output/`、`langsplatv2/`、`langsplat_export/` | worker 实际产物目录 |
 
 ## colmap
 
@@ -68,11 +69,15 @@ jobs/{job_id}/
 - `colmap/sparse` 存在
 - `output/chkpnt{N}.pth` 存在，`N` 与 3DGS `output_iteration` 对齐
 
-产出位置：`langsplatv2/`，目录名由 `config/langsplat.yaml` 中 `runtime.model_relative` 决定。
+训练中间产物位置：`langsplatv2/`，目录名由 `config/langsplat.yaml` 中 `runtime.model_relative` 决定。
+
+最终导出产物位置：`langsplat_export/chkpnt{N}/`，目录名由 `config/langsplat.yaml` 中 `export.output_relative` 决定，`N` 来自 `export.checkpoint`；未配置时取 `training.checkpoint_iterations` 的最大值。
 
 阶段结果登记 artifact：
 
-- `language_model` → 模型目录路径
+- `language_model` → 最终导出目录路径，例如 `langsplat_export/chkpnt10000/`
+
+`language_model` 是目录型 artifact。状态和产物列表接口会返回它的路径、checkpoint、levels、queries 等 metadata；当前下载接口面向普通文件流，调用方不要把该目录当单文件直接下载。
 
 ## gaussian-wrapping
 
@@ -83,7 +88,7 @@ jobs/{job_id}/
 - `colmap/sparse` 存在
 - `output/point_cloud/iteration_{N}/point_cloud.ply` 存在
 
-产出位置：`output/` 下，文件名由 `config/gaussian-wrapping.yaml` 的 `outputs` 段定义。
+产出位置：`output/` 下，文件名由服务端根据 `config/gaussian-wrapping.yaml` 中的几何、纹理参数预测。
 
 默认查找：
 
@@ -154,4 +159,6 @@ output/cfg_args
 `N` 来自 `spec.options.iteration`。
 
 仅执行 `3dgs-to-pc` 阶段，产物为 `mesh`，对应 `output/mesh_poisson.ply`。
+
+上传的 PLY 必须是 native 3DGS point cloud，header 至少包含 `x`、`y`、`z`、`opacity`、`f_dc_0`、`f_dc_1`、`f_dc_2`，并包含 `f_rest_*`、`scale_*`、`rot_*` 字段。
 

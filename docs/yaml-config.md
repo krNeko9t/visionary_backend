@@ -76,7 +76,7 @@
 | `mesh_first`（默认） | `colmap → gw-train → gaussian-wrapping` | 使用 Gaussian Wrapping 自带训练 |
 | `3dgs_first` | `colmap → 3dgs → gaussian-wrapping` | 旧路线，Inria 3DGS 训练后提取 mesh |
 
-对外 artifact id 不变：`mesh`、`mesh_textured` 仍由 `gaussian-wrapping` 阶段登记。
+对外 artifact id 不变：`mesh`、`mesh_textured` 仍由 `gaussian-wrapping` 阶段登记。完整说明见 [mesh-pipeline.md](mesh-pipeline.md)。
 
 ## 阶段间耦合
 
@@ -153,11 +153,24 @@
 | `export.output_relative` | `langsplat_export` | 最终导出目录 |
 | `export.levels` | `[0]` | 最终导出的语言特征层级 |
 
+### gw-train
+
+| 参数 | 默认 | 作用 |
+|------|------|------|
+| `training.output_iteration` | `30000` | 下游 GW extract 读取的 PLY 迭代，须等于 `optimization.iterations` |
+| `optimization.iterations` | `30000` | 总训练步数 |
+| `model.resolution` | `-1` | 训练图像缩放 |
+| `model.data_device` | `cpu` | 数据加载设备 |
+| `gw.rasterizer` | `ours` | GW 光栅化后端，默认与 extract 的 `sdf_mode: ours` 对齐 |
+| `gw.exposure_compensation` | `true` | 曝光补偿 |
+| `gw.N_max_gaussians` | `6000000` | 高斯数量上限 |
+| `gw.multiview_config` | `fast` | 多视图正则配置名 |
+
 ### gaussian-wrapping
 
 | 参数 | 默认 | 作用 |
 |------|------|------|
-| 3DGS iteration | 来自 `3dgs.training.output_iteration` | 读取哪一步的 3DGS PLY，由 executor 注入 |
+| 上游 iteration | 来自 `gw-train` 或 `3dgs` 的 `training.output_iteration` | 读取哪一步的训练 PLY，由 executor 按路线注入 |
 | `extraction.n_pivots` | `2` | pivot 数量 |
 | `extraction.sdf_mode` | `ours` | 等值面提取后端 |
 | `extraction.postprocess` | `true` | mesh 清理 |

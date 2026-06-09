@@ -48,7 +48,29 @@ jobs/{job_id}/
 - `colmap_sparse` → `colmap/sparse/0`
 - `colmap_images` → `colmap/images`
 
+## gw-train
+
+用于 `input_mode=images`、`mesh_route=mesh_first`（默认）时的 mesh 输出。
+
+输入要求：`colmap/sparse` 存在。
+
+Worker：`gaussian-wrapping` 镜像，执行 `gaussian_wrapping/train.py`。
+
+产出位置：`output/`，目录名由 `config/gw-train.yaml` 中 `runtime.output_relative` 决定。
+
+- `output/point_cloud/iteration_{N}/point_cloud.ply`
+- `output/chkpnt{N}.pth`
+
+`N` 来自 `config/gw-train.yaml` 的 `training.output_iteration`，须与 `optimization.iterations` 一致。
+
+阶段结果登记 artifact：
+
+- `point_cloud` → ply 文件路径
+- `gs_checkpoint` → checkpoint 路径
+
 ## 3dgs
+
+用于 `point_cloud`、`language_model` 输出，或 `mesh_route=3dgs_first` 时的 mesh 训练。
 
 输入要求：`colmap/sparse` 存在。
 
@@ -83,12 +105,14 @@ jobs/{job_id}/
 
 ## gaussian-wrapping
 
-用于 `input_mode=images` 的 mesh 输出。
+用于 `input_mode=images` 的 mesh 输出（`mesh_first` 或 `3dgs_first` 路线的最后阶段）。
 
 输入要求：
 
 - `colmap/sparse` 存在
-- `output/point_cloud/iteration_{N}/point_cloud.ply` 存在
+- `output/point_cloud/iteration_{N}/point_cloud.ply` 存在（来自 `gw-train` 或 `3dgs`，取决于任务规划）
+
+`N` 由上游训练阶段配置注入：`mesh_first` 读 `gw-train` 的 `output_iteration`，`3dgs_first` 读 `3dgs` 的 `output_iteration`。
 
 产出位置：`output/` 下，文件名由服务端根据 `config/gaussian-wrapping.yaml` 中的几何、纹理参数预测。
 

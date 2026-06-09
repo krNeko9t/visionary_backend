@@ -13,9 +13,11 @@
 | output | input_mode | 规划阶段 |
 |--------|------------|----------|
 | `point_cloud` | `images` | colmap → 3dgs |
-| `mesh` | `images` | colmap → 3dgs → gaussian-wrapping |
+| `mesh` | `images` | 默认 `mesh_first`：colmap → gw-train → gaussian-wrapping；`mesh_route: 3dgs_first` 时为 colmap → 3dgs → gaussian-wrapping |
 | `mesh` | `native_3dgs_ply` | 3dgs-to-pc |
 | `language_model` | `images` | colmap → 3dgs → langsplat |
+
+`mesh` + `language_model` 同时请求时，在 `mesh_first` 下合并为 colmap → 3dgs → gw-train → langsplat → gaussian-wrapping。路线细节见 [mesh-pipeline.md](mesh-pipeline.md)。
 
 `spec.options.language_features: true` 时自动追加 `language_model` 输出。
 
@@ -43,9 +45,11 @@
 |------|------|
 | `outputs` | 可请求的目标产物，含自动规划阶段提示 |
 | `input_modes` | 输入模式、允许文件类型、该模式下允许的 outputs |
-| `stage_presets` | 按 stage 分组的 YAML 预设，例如 `{"3dgs": ["high", "mid", "small"]}` |
+| `stage_presets` | 按 stage 分组的 YAML 预设，例如 `{"3dgs": ["high", "mid", "small"], "gw-train": ["high", "mid", "small"]}` |
 | `stages` | 阶段顺序、依赖与输入提示 |
 | `mesh_formats` | `spec.options.mesh_formats` 可选值 |
+| `mesh_routes` | 图像 mesh 训练路线：`mesh_first`、`3dgs_first` |
+| `default_mesh_route` | 默认 mesh 路线，当前为 `mesh_first` |
 
 ### 创建任务
 
@@ -67,8 +71,10 @@
     "input_mode": "images",
     "language_features": false,
     "mesh_formats": ["ply"],
+    "mesh_route": "mesh_first",
     "stage_presets": {
-      "3dgs": "small",
+      "gw-train": "mid",
+      "gaussian-wrapping": "high_geo_tex",
       "colmap": "fast"
     }
   },
@@ -87,6 +93,7 @@
 
 - `outputs`：必填，目标产物列表
 - `options.input_mode`：默认 `images`；可选值以 `GET /api/v1/capabilities` 返回为准
+- `options.mesh_route`：图像 mesh 训练路线，可选 `mesh_first`（默认）或 `3dgs_first`。仅 `outputs` 包含 `mesh` 且 `input_mode=images` 时生效
 - `options.stage_presets`：按 stage 选择 YAML 预设。不传时使用各 stage 的 `default.yaml`；不存在顶层 `preset` 字段
 - `options.language_features`：为 `true` 时自动追加 `language_model` 输出，仅支持 `images`
 - `options.mesh_formats`：控制 mesh 导出格式，默认 `["ply"]`，可选 `ply`、`obj`、`glb`。仅 `outputs` 包含 `mesh` 时可设置
@@ -229,7 +236,7 @@
 | `images` | 图片 | point_cloud、mesh、language_model | 按 output 自动展开 |
 | `native_3dgs_ply` | 一个 native 3DGS point_cloud.ply | mesh | 3dgs-to-pc |
 
-图片全流程的 mesh 由 `gaussian-wrapping` 生成，可产出 `mesh` 与 `mesh_textured`。
+图片全流程默认经 `gw-train` 训练高斯场，再由 `gaussian-wrapping` 提取 mesh，可产出 `mesh` 与 `mesh_textured`。完整路线说明见 [mesh-pipeline.md](mesh-pipeline.md)。
 
 `native_3dgs_ply` 的 mesh 由 `3dgs-to-pc` 生成，从 PLY 采样稠密点云后做 Poisson 重建，产出 `mesh`，无纹理。
 

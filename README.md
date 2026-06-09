@@ -135,22 +135,7 @@ jobs/{job_id}/
 
 此模式上传一个 `point_cloud.ply`，仅规划 `3dgs-to-pc` 阶段，产物为 `mesh`，文件 `output/mesh_poisson.ply`。
 
-图片全流程默认走 `mesh_first` 路线：`colmap → gw-train → gaussian-wrapping`，可产出 `mesh` 与 `mesh_textured`。可通过 `options.mesh_route` 切换：
-
-```json
-{
-  "outputs": ["mesh"],
-  "options": {
-    "mesh_route": "3dgs_first",
-    "stage_presets": {
-      "3dgs": "mid",
-      "gaussian-wrapping": "high_geo_tex"
-    }
-  }
-}
-```
-
-`mesh_first` 为默认路线；`3dgs_first` 保留旧的 `colmap → 3dgs → gaussian-wrapping` 流程。`gw-train` 训练档位可通过 `stage_presets.gw-train` 选择 `small`、`mid`、`high`。
+图片全流程默认走 `mesh_first` 路线：`colmap → gw-train → gaussian-wrapping`，可产出 `mesh` 与 `mesh_textured`。传 `options.mesh_route: "3dgs_first"` 可回退旧路线 `colmap → 3dgs → gaussian-wrapping`。训练档位通过 `stage_presets.gw-train`（`small` / `mid` / `high`）选择。详见 [`docs/mesh-pipeline.md`](docs/mesh-pipeline.md)。
 
 可选导出 OBJ、GLB：
 
@@ -175,6 +160,7 @@ jobs/{job_id}/
 ## 进一步阅读
 
 - `docs/setup-and-start.md`：环境与启动
+- `docs/mesh-pipeline.md`：图像到 mesh 流水线与路线选择
 - `docs/backend-api-frontend-guide.md`：API 对接
 - `docs/jobs-worker-output-structure.md`：任务目录与 worker 产物
 - `docs/yaml-config.md`：YAML 参数与覆盖规则

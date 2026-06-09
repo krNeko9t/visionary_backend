@@ -21,14 +21,16 @@ jobs/{job_id}/
 
 ## 固定目录含义
 
-| 路径 | 含义 |
-|------|------|
-| `state/job.json` | 任务总状态、阶段状态、产物索引 |
-| `input/` | 上传的输入图片 |
-| `config/*.yaml` | 创建任务时物化的阶段配置 |
-| `stages/{stage_id}/result.json` | 阶段标准结果，含 artifact 列表 |
-| `events/{stage_id}.jsonl` | 阶段进度事件，每行一条 JSON |
-| `colmap/`、`output/`、`langsplatv2/`、`langsplat_export/` | worker 实际产物目录 |
+
+| 路径                                                     | 含义                   |
+| ------------------------------------------------------ | -------------------- |
+| `state/job.json`                                       | 任务总状态、阶段状态、产物索引      |
+| `input/`                                               | 上传的输入图片              |
+| `config/*.yaml`                                        | 创建任务时物化的阶段配置         |
+| `stages/{stage_id}/result.json`                        | 阶段标准结果，含 artifact 列表 |
+| `events/{stage_id}.jsonl`                              | 阶段进度事件，每行一条 JSON     |
+| `colmap/`、`output/`、`langsplatv2/`、`langsplat_export/` | worker 实际产物目录        |
+
 
 ## colmap
 
@@ -102,7 +104,7 @@ jobs/{job_id}/
 
 ## 3dgs-to-pc
 
-用于 `input_mode=native_3dgs_ply` 的 mesh 输出。
+用于 `input_mode=native_3dgs_ply` 的 mesh 输出。注意：该方案质量无法得到保证，尽量使用高质量3dgs场景作为输入。
 
 输入要求：
 
@@ -118,20 +120,20 @@ jobs/{job_id}/
 
 - `mesh` → mesh ply 路径
 
-
-
 ## mesh 多格式导出
 
 `gaussian-wrapping` 与 `3dgs-to-pc` 均产出 PLY mesh。若 `spec.options.mesh_formats` 包含 `obj` 或 `glb`，Task Server 在对应 mesh 阶段完成后将 PLY 转换为派生产物，写入与源 PLY 同目录：
 
-| artifact_id | 文件 | 说明 |
-|-------------|------|------|
-| `mesh` | 原始 mesh ply | worker 产物 |
-| `mesh_obj` | `mesh.obj` | PLY 转换 |
-| `mesh_glb` | `mesh.glb` | PLY 转换 |
-| `mesh_textured` | 原始 textured ply | 仅 gaussian-wrapping |
-| `mesh_textured_obj` | `mesh_textured.obj` | PLY 转换 |
-| `mesh_textured_glb` | `mesh_textured.glb` | PLY 转换 |
+
+| artifact_id         | 文件                  | 说明                  |
+| ------------------- | ------------------- | ------------------- |
+| `mesh`              | 原始 mesh ply         | worker 产物           |
+| `mesh_obj`          | `mesh.obj`          | PLY 转换              |
+| `mesh_glb`          | `mesh.glb`          | PLY 转换              |
+| `mesh_textured`     | 原始 textured ply     | 仅 gaussian-wrapping |
+| `mesh_textured_obj` | `mesh_textured.obj` | PLY 转换              |
+| `mesh_textured_glb` | `mesh_textured.glb` | PLY 转换              |
+
 
 下载示例：
 
@@ -161,4 +163,3 @@ output/cfg_args
 仅执行 `3dgs-to-pc` 阶段，产物为 `mesh`，对应 `output/mesh_poisson.ply`。
 
 上传的 PLY 必须是 native 3DGS point cloud，header 至少包含 `x`、`y`、`z`、`opacity`、`f_dc_0`、`f_dc_1`、`f_dc_2`，并包含 `f_rest_*`、`scale_*`、`rot_*` 字段。
-

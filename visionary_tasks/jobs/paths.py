@@ -80,8 +80,14 @@ class JobPaths:
     def gs_checkpoint(self, output_relative: str, output_iteration: int) -> Path:
         return self.output_dir(output_relative) / f"chkpnt{output_iteration}.pth"
 
-    def langsplat_model_dir(self, model_relative: str) -> Path:
-        return self.root / model_relative
+    def langsplat_model_dir(self, model_relative: str, feature_level: int) -> Path:
+        return self.root / f"{model_relative}_{feature_level}"
+
+    def langsplat_export_dir(self, output_relative: str) -> Path:
+        return self.root / output_relative
+
+    def langsplat_export_root(self, output_relative: str, checkpoint: int) -> Path:
+        return self.langsplat_export_dir(output_relative) / f"chkpnt{checkpoint}"
 
     def wrapping_mesh_ply(
         self,

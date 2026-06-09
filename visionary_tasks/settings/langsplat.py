@@ -11,7 +11,7 @@ MODEL_SHORTHAND = {
     "images": "-i",
     "feature_level": "-f",
 }
-MODEL_SKIP = {"source_path", "model_path"}
+MODEL_SKIP = {"source_path", "model_path", "feature_levels"}
 TRAINING_SKIP = {"start_checkpoint"}
 
 
@@ -36,6 +36,7 @@ class LangSplatModelConfig:
     resolution: int = -1
     white_background: bool = False
     feature_level: int = 0
+    feature_levels: list[int] = field(default_factory=lambda: [1, 2, 3])
     data_device: str = "cuda"
     eval: bool = False
 
@@ -73,6 +74,17 @@ class LangSplatPipelineConfig:
 
 
 @dataclass
+class LangSplatExportConfig:
+    output_relative: str = "langsplat_export"
+    checkpoint: int | None = None
+    levels: list[int] = field(default_factory=lambda: [1, 2, 3])
+    queries: list[str] = field(
+        default_factory=lambda: ["elephant", "camera", "object", "things", "stuff", "texture"]
+    )
+    topk: int = 4
+
+
+@dataclass
 class LangSplatTrainingConfig:
     test_iterations: list[int] = field(
         default_factory=lambda: [2000, 4000, 6000, 8000, 10_000, 30_000]
@@ -104,6 +116,7 @@ class LangSplatJobConfig:
     optimization: LangSplatOptimizationConfig
     pipeline: LangSplatPipelineConfig
     training: LangSplatTrainingConfig
+    export: LangSplatExportConfig
 
     @classmethod
     def from_merged_dict(cls, payload: dict[str, Any]) -> "LangSplatJobConfig":
@@ -114,6 +127,7 @@ class LangSplatJobConfig:
             optimization=LangSplatOptimizationConfig(**dict(payload.get("optimization") or {})),
             pipeline=LangSplatPipelineConfig(**dict(payload.get("pipeline") or {})),
             training=LangSplatTrainingConfig(**dict(payload.get("training") or {})),
+            export=LangSplatExportConfig(**dict(payload.get("export") or {})),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -124,7 +138,25 @@ class LangSplatJobConfig:
             "optimization": asdict(self.optimization),
             "pipeline": asdict(self.pipeline),
             "training": asdict(self.training),
+            "export": asdict(self.export),
         }
+
+    def training_feature_levels(self) -> list[int]:
+        if self.model.feature_levels:
+            return [int(level) for level in self.model.feature_levels]
+        return [int(self.model.feature_level)]
+
+    def export_checkpoint(self) -> int:
+        if self.export.checkpoint is not None:
+            return int(self.export.checkpoint)
+        if self.training.checkpoint_iterations:
+            return max(int(item) for item in self.training.checkpoint_iterations)
+        return int(self.optimization.iterations)
+
+    def export_levels(self) -> list[int]:
+        if self.export.levels:
+            return [int(level) for level in self.export.levels]
+        return self.training_feature_levels()
 
     def to_preprocess_command(self, dataset_path: str) -> list[str]:
         command = ["python", "preprocess.py", "--dataset_path", dataset_path]
@@ -139,6 +171,8 @@ class LangSplatJobConfig:
         source_path: str,
         model_path: str,
         checkpoint_path: str,
+        *,
+        feature_level: int | None = None,
     ) -> list[str]:
         command = [
             "python",
@@ -153,6 +187,8 @@ class LangSplatJobConfig:
         for key, value in asdict(self.model).items():
             if key in MODEL_SKIP:
                 continue
+            if key == "feature_level" and feature_level is not None:
+                value = feature_level
             command.extend(format_cli_arg(key, value, shorthand=MODEL_SHORTHAND.get(key)))
         for key, value in asdict(self.optimization).items():
             command.extend(format_cli_arg(key, value))
@@ -162,4 +198,28 @@ class LangSplatJobConfig:
             if key in TRAINING_SKIP:
                 continue
             command.extend(format_cli_arg(key, value))
+        return command
+
+    def to_export_command(
+        self,
+        model_root: str,
+        output_dir: str,
+        checkpoint: int,
+    ) -> list[str]:
+        command = [
+            "python",
+            "export_lsv2_final_product.py",
+            "--model_root",
+            model_root,
+            "--output_dir",
+            output_dir,
+            "--checkpoint",
+            str(checkpoint),
+            "--topk",
+            str(self.export.topk),
+            "--levels",
+            *[str(level) for level in self.export_levels()],
+        ]
+        if self.export.queries:
+            command.extend(["--queries", *[str(query) for query in self.export.queries]])
         return command

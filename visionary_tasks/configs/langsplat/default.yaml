@@ -17,7 +17,7 @@ model:
   images: images
   resolution: -1
   white_background: false
-  feature_level: 0
+  feature_levels: [0]
   data_device: cuda
   eval: false
 
@@ -64,3 +64,16 @@ training:
   debug_from: -1
   detect_anomaly: false
   start_checkpoint: null
+
+export:
+  output_relative: langsplat_export
+  checkpoint: null
+  levels: [0]
+  queries:
+    - elephant
+    - camera
+    - object
+    - things
+    - stuff
+    - texture
+  topk: 4

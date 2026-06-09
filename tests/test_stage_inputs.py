@@ -29,6 +29,7 @@ def _settings(tmp_path: Path) -> Settings:
         jobs_root=tmp_path / "jobs",
         gs_repo_path=tmp_path / "gs",
         ckpts_root=tmp_path / "ckpts",
+        langsplat_repo_path=None,
         task_server_container_name="visionary-task-server",
         cors=CorsSettings(
             allow_origins=("http://localhost:5173",),

@@ -4,6 +4,7 @@ data_root: /data
 jobs_root: /data/jobs
 gs_repo_path: /workspace/gaussian-splatting
 ckpts_root: /workspace/ckpts
+langsplat_repo_path: /workspace/langsplat-src
 task_server_container_name: visionary-task-server
 
 cors:

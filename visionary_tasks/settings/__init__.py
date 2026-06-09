@@ -40,6 +40,7 @@ class Settings:
     jobs_root: Path
     gs_repo_path: Path
     ckpts_root: Path
+    langsplat_repo_path: Path | None
     task_server_container_name: str
     cors: CorsSettings
 
@@ -73,6 +74,11 @@ def load_server_settings(path: Path | None = None) -> Settings:
         jobs_root=Path(str(payload.get("jobs_root", "/data/jobs"))),
         gs_repo_path=Path(str(payload.get("gs_repo_path", "/workspace/gaussian-splatting"))),
         ckpts_root=Path(str(payload.get("ckpts_root", "/workspace/ckpts"))),
+        langsplat_repo_path=(
+            Path(str(payload["langsplat_repo_path"]))
+            if payload.get("langsplat_repo_path")
+            else None
+        ),
         task_server_container_name=str(
             payload.get("task_server_container_name", "visionary-task-server")
         ),

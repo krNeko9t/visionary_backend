@@ -5,13 +5,14 @@ from collections.abc import Callable
 from ..jobs.paths import JobPaths
 from ..settings import Settings
 from ..workers.contract import WorkerResult
-from . import colmap, dgs_to_pc, gs, langsplat
+from . import colmap, dgs_to_pc, gs, gw_train, langsplat
 from .gaussian_wrapping import run as gaussian_wrapping_run
 from .inputs import (
     missing_3dgs_inputs,
     missing_3dgs_to_pc_inputs,
     missing_colmap_inputs,
     missing_gaussian_wrapping_inputs,
+    missing_gw_train_inputs,
     missing_langsplat_inputs,
 )
 
@@ -21,6 +22,7 @@ InputChecker = Callable[[JobPaths, Settings], list[str]]
 STAGE_RUNNERS: dict[str, StageRunner] = {
     "colmap": colmap.run,
     "3dgs": gs.run,
+    "gw-train": gw_train.run,
     "langsplat": langsplat.run,
     "gaussian-wrapping": gaussian_wrapping_run.run,
     "3dgs-to-pc": dgs_to_pc.run,
@@ -29,6 +31,7 @@ STAGE_RUNNERS: dict[str, StageRunner] = {
 INPUT_CHECKERS: dict[str, InputChecker] = {
     "colmap": missing_colmap_inputs,
     "3dgs": missing_3dgs_inputs,
+    "gw-train": missing_gw_train_inputs,
     "langsplat": missing_langsplat_inputs,
     "gaussian-wrapping": missing_gaussian_wrapping_inputs,
     "3dgs-to-pc": missing_3dgs_to_pc_inputs,

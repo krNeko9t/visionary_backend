@@ -10,7 +10,7 @@
 | 阶段预设 | `visionary_tasks/configs/{stage}/{preset}.yaml` | 创建任务时通过 `options.stage_presets` 选择 |
 | 单任务 | `data/jobs/{job_id}/config/{stage}.yaml` | 创建时物化，可手动修改 |
 
-`{stage}` 取值：`colmap`、`3dgs`、`langsplat`、`gaussian-wrapping`、`3dgs-to-pc`。
+`{stage}` 取值：`colmap`、`3dgs`、`gw-train`、`langsplat`、`gaussian-wrapping`、`3dgs-to-pc`。
 
 创建任务时写入 job 目录。之后修改全局 default 不影响已有 job。
 
@@ -63,8 +63,20 @@
 |-------|---------|
 | `colmap` | `fast`、`fisheye`、`general`、`video` |
 | `3dgs` | `small`、`mid`、`high` |
+| `gw-train` | `small`、`mid`、`high` |
 | `langsplat` | `small`、`high`、`full` |
 | `gaussian-wrapping` | `simple`、`high_geo`、`high_geo_tex` |
+
+## Mesh 路线
+
+图片输入请求 `outputs: ["mesh"]` 时，可通过 `options.mesh_route` 选择训练路线：
+
+| 值 | 阶段链 | 说明 |
+|----|--------|------|
+| `mesh_first`（默认） | `colmap → gw-train → gaussian-wrapping` | 使用 Gaussian Wrapping 自带训练 |
+| `3dgs_first` | `colmap → 3dgs → gaussian-wrapping` | 旧路线，Inria 3DGS 训练后提取 mesh |
+
+对外 artifact id 不变：`mesh`、`mesh_textured` 仍由 `gaussian-wrapping` 阶段登记。
 
 ## 阶段间耦合
 
@@ -77,7 +89,8 @@
 **Gaussian Wrapping iteration**
 
 - 不在 `gaussian-wrapping.yaml` 中配置
-- 每次执行时从 3DGS job config 的 `training.output_iteration` 注入 worker 命令
+- 每次执行时从上游训练阶段 job config 的 `training.output_iteration` 注入 worker 命令
+- `mesh_first` 路线读取 `gw-train` 配置；`3dgs_first` 路线读取 `3dgs` 配置
 
 **3dgs-to-pc `extraction.iteration`**
 
@@ -95,6 +108,8 @@
 **colmap**：`converter.*` 对应 `convert.py`。`source_path` 由 stage 注入为 `/job`。
 
 **3dgs**：`model`、`optimization`、`pipeline`、`training` 对应 `gaussian-splatting/train.py`。`-s`、`-m` 由 stage 注入。
+
+**gw-train**：`model`、`optimization`、`pipeline`、`training`、`gw` 对应 `gaussian_wrapping/train.py`。`-s`、`-m` 由 stage 注入；`gw` 分区承载 rasterizer、multiview、normal field 等 GW 特有参数。
 
 **langsplat**：`runtime`、`preprocess`、`model`、`optimization`、`pipeline`、`training`、`export` 对应 LangSplatV2 的 `preprocess.py`、`train.py` 与最终导出脚本。
 

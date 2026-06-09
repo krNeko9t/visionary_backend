@@ -10,9 +10,13 @@ from visionary_tasks.stages.gaussian_wrapping.build_extract_command import (
 from visionary_tasks.stages.gaussian_wrapping.predict_output_names import (
     predict_output_names,
 )
+from visionary_tasks.domain.jobs import JobSpec, JobState
+from visionary_tasks.jobs.storage import write_job_state
+from visionary_tasks.settings.gw_train import GwTrainJobConfig
 from visionary_tasks.stages.gaussian_wrapping.resolve_3dgs_output_for_extract import (
     ExtractInputs,
     resolve,
+    resolve_for_job,
 )
 
 
@@ -100,6 +104,68 @@ def test_resolve_reads_3dgs_output_iteration(tmp_path: Path):
         colmap_path="/job/colmap",
         model_path="/job/output",
         iteration=42_000,
+    )
+
+
+def _gw_config(tmp_path: Path, output_iteration: int = 18_000):
+    job_id = "gw-from-gw-train"
+    paths = JobPaths(job_id=job_id, root=tmp_path / job_id)
+    paths.root.mkdir(parents=True)
+    config = materialize_stage_config(
+        "gw-train",
+        paths,
+        override={
+            "optimization": {"iterations": output_iteration},
+            "training": {
+                "output_iteration": output_iteration,
+                "save_iterations": [output_iteration],
+                "checkpoint_iterations": [output_iteration],
+            },
+        },
+    )
+    assert isinstance(config, GwTrainJobConfig)
+    return config, paths
+
+
+def _settings(tmp_path: Path):
+    from visionary_tasks.settings import CorsSettings, Settings
+
+    return Settings(
+        data_root=tmp_path,
+        jobs_root=tmp_path / "jobs",
+        gs_repo_path=tmp_path / "gs",
+        ckpts_root=tmp_path / "ckpts",
+        langsplat_repo_path=None,
+        task_server_container_name="visionary-task-server",
+        cors=CorsSettings(
+            allow_origins=("http://localhost:5173",),
+            allow_credentials=True,
+            allow_methods=("GET", "POST"),
+            allow_headers=("*",),
+        ),
+    )
+
+
+def test_resolve_for_job_reads_gw_train_output_iteration(tmp_path: Path):
+    _, paths = _gw_config(tmp_path, output_iteration=18_000)
+    state = JobState(
+        job_id=paths.job_id,
+        spec=JobSpec(outputs=["mesh"]),
+        status="queued",
+        stages=[],
+        artifacts=[],
+        created_at="2026-01-01T00:00:00+00:00",
+        updated_at="2026-01-01T00:00:00+00:00",
+        planned_stages=["colmap", "gw-train", "gaussian-wrapping"],
+    )
+    write_job_state(paths.job_state_file, state)
+
+    upstream = resolve_for_job(_settings(tmp_path), paths)
+
+    assert upstream == ExtractInputs(
+        colmap_path="/job/colmap",
+        model_path="/job/output",
+        iteration=18_000,
     )
 
 

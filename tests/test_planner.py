@@ -9,9 +9,28 @@ def test_plan_point_cloud_outputs():
     assert plan.stages == ("colmap", "3dgs")
 
 
-def test_plan_mesh_outputs():
+def test_plan_mesh_outputs_defaults_to_mesh_first():
     plan = plan_pipeline(JobSpec(outputs=["mesh"]))
+    assert plan.stages == ("colmap", "gw-train", "gaussian-wrapping")
+
+
+def test_plan_mesh_outputs_3dgs_first_route():
+    plan = plan_pipeline(
+        JobSpec(outputs=["mesh"], options={"mesh_route": "3dgs_first"})
+    )
     assert plan.stages == ("colmap", "3dgs", "gaussian-wrapping")
+
+
+def test_plan_mesh_with_language_model_includes_both_training_stages():
+    plan = plan_pipeline(
+        JobSpec(outputs=["mesh", "language_model"], options={"language_features": True})
+    )
+    assert plan.stages == ("colmap", "3dgs", "gw-train", "langsplat", "gaussian-wrapping")
+
+
+def test_unknown_mesh_route_rejected():
+    with pytest.raises(ValueError, match="未知 mesh_route"):
+        plan_pipeline(JobSpec(outputs=["mesh"], options={"mesh_route": "invalid"}))
 
 
 def test_plan_mesh_from_native_ply():
@@ -74,7 +93,7 @@ def test_mesh_formats_accepts_supported_formats():
             options={"mesh_formats": ["ply", "obj", "glb"]},
         )
     )
-    assert plan.stages == ("colmap", "3dgs", "gaussian-wrapping")
+    assert plan.stages == ("colmap", "gw-train", "gaussian-wrapping")
 
 
 def test_mesh_formats_rejects_unknown_format():

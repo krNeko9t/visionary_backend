@@ -6,5 +6,6 @@ def test_colmap_presets_are_discovered_from_config_dir():
     assert set(presets) == {"general", "video", "fast", "fisheye"}
 
 
-def test_stage_without_extra_yaml_has_no_presets():
-    assert stage_preset_paths("langsplat") == {}
+def test_langsplat_presets_are_discovered_from_config_dir():
+    presets = stage_preset_paths("langsplat")
+    assert set(presets) == {"small", "high", "full"}

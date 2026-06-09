@@ -1,4 +1,4 @@
-from ..config.loader import load_gs_job_config
+from ..config.loader import load_gs_job_config, load_gw_train_job_config
 from ..domain.input_modes import get_iteration
 from ..jobs.paths import JobPaths
 from ..jobs.storage import read_job_state
@@ -35,6 +35,14 @@ def missing_3dgs_inputs(paths: JobPaths, settings: Settings) -> list[str]:
     return ["缺少 COLMAP 稀疏重建: colmap/sparse"]
 
 
+def missing_gw_train_inputs(paths: JobPaths, settings: Settings) -> list[str]:
+    del settings
+    sparse = paths.colmap_dir / "sparse"
+    if sparse.exists():
+        return []
+    return ["缺少 COLMAP 稀疏重建: colmap/sparse"]
+
+
 def missing_langsplat_inputs(paths: JobPaths, settings: Settings) -> list[str]:
     missing: list[str] = []
     if not (paths.colmap_dir / "sparse").exists():
@@ -54,14 +62,23 @@ def missing_3dgs_to_pc_inputs(paths: JobPaths, settings: Settings) -> list[str]:
     return _missing_3dgs_to_pc_ply_inputs(paths, settings)
 
 
+def _mesh_training_config(paths: JobPaths, settings: Settings):
+    state = read_job_state(paths.job_state_file)
+    if state is not None and "gw-train" in state.planned_stages:
+        return load_gw_train_job_config(settings, paths)
+    return load_gs_job_config(settings, paths)
+
+
 def _missing_gaussian_wrapping_full_inputs(paths: JobPaths, settings: Settings) -> list[str]:
     missing: list[str] = []
     if not (paths.colmap_dir / "sparse").exists():
         missing.append("缺少 COLMAP 稀疏重建: colmap/sparse")
-    config = load_gs_job_config(settings, paths)
+    state = read_job_state(paths.job_state_file)
+    config = _mesh_training_config(paths, settings)
     gs_ply = paths.gs_output_ply(config.output_relative, config.output_iteration)
     if not gs_ply.exists():
-        missing.append(f"缺少 3DGS 点云: {gs_ply.relative_to(paths.root)}")
+        label = "GW 训练" if state is not None and "gw-train" in state.planned_stages else "3DGS"
+        missing.append(f"缺少 {label} 点云: {gs_ply.relative_to(paths.root)}")
     return missing
 
 

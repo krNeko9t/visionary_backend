@@ -11,6 +11,7 @@ from ..settings.colmap import ColmapJobConfig
 from ..settings.dgs_to_pc import DgsToPcJobConfig
 from ..settings.gaussian_wrapping import GaussianWrappingJobConfig
 from ..settings.gs import GsJobConfig
+from ..settings.gw_train import GwTrainJobConfig
 from ..settings.langsplat import LangSplatJobConfig
 from .registry import CONFIG_FACTORIES, STAGE_IDS, default_config_path, stage_preset_paths
 
@@ -108,24 +109,38 @@ def materialize_job_configs(
     stage_ids: list[str],
     overrides: dict[str, dict[str, Any] | None] | None = None,
     stage_presets: dict[str, str] | None = None,
-) -> GsJobConfig:
+) -> GsJobConfig | GwTrainJobConfig:
+    del settings
     overrides = overrides or {}
     stage_presets = stage_presets or {}
-    gs_config = materialize_stage_config(
-        "3dgs",
-        paths,
-        override=overrides.get("3dgs"),
-        preset=stage_presets.get("3dgs"),
-    )
+    output_config: GsJobConfig | GwTrainJobConfig | None = None
+
+    if "3dgs" in stage_ids:
+        output_config = materialize_stage_config(
+            "3dgs",
+            paths,
+            override=overrides.get("3dgs"),
+            preset=stage_presets.get("3dgs"),
+        )
+    elif "gw-train" in stage_ids:
+        output_config = materialize_stage_config(
+            "gw-train",
+            paths,
+            override=overrides.get("gw-train"),
+            preset=stage_presets.get("gw-train"),
+        )
+
     for stage_id in STAGE_IDS:
-        if stage_id == "3dgs" or stage_id not in stage_ids:
+        if stage_id in {"3dgs", "gw-train"} or stage_id not in stage_ids:
             continue
         if stage_id == "3dgs-to-pc":
+            if output_config is None:
+                raise ValueError("3dgs-to-pc 需要 3dgs 或 gw-train 阶段")
             materialize_stage_config(
                 stage_id,
                 paths,
                 override=overrides.get(stage_id),
-                gs_output_iteration=gs_config.output_iteration,
+                gs_output_iteration=output_config.output_iteration,
             )
         else:
             materialize_stage_config(
@@ -134,7 +149,10 @@ def materialize_job_configs(
                 override=overrides.get(stage_id),
                 preset=stage_presets.get(stage_id),
             )
-    return gs_config
+
+    if output_config is None:
+        raise ValueError("任务计划必须包含 3dgs 或 gw-train 阶段")
+    return output_config
 
 
 def load_gs_job_config(settings: Settings, paths: JobPaths) -> GsJobConfig:
@@ -154,6 +172,10 @@ def load_gaussian_wrapping_job_config(
     paths: JobPaths,
 ) -> GaussianWrappingJobConfig:
     return load_stage_config("gaussian-wrapping", settings, paths)
+
+
+def load_gw_train_job_config(settings: Settings, paths: JobPaths) -> GwTrainJobConfig:
+    return load_stage_config("gw-train", settings, paths)
 
 
 def load_3dgs_to_pc_job_config(settings: Settings, paths: JobPaths) -> DgsToPcJobConfig:

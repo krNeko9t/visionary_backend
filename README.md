@@ -89,7 +89,7 @@ jobs/{job_id}/
 - 全局默认：`visionary_tasks/configs/{stage}/default.yaml`
 - 单任务配置：`jobs/{job_id}/config/{stage}.yaml`
 
-阶段标识：`colmap`、`3dgs`、`langsplat`、`gaussian-wrapping`、`3dgs-to-pc`。
+阶段标识：`colmap`、`3dgs`、`gw-train`、`langsplat`、`gaussian-wrapping`、`3dgs-to-pc`。
 
 ## API 调用链路
 
@@ -135,7 +135,22 @@ jobs/{job_id}/
 
 此模式上传一个 `point_cloud.ply`，仅规划 `3dgs-to-pc` 阶段，产物为 `mesh`，文件 `output/mesh_poisson.ply`。
 
-图片全流程使用 `gaussian-wrapping` 提取 mesh，可产出 `mesh` 与 `mesh_textured`。
+图片全流程默认走 `mesh_first` 路线：`colmap → gw-train → gaussian-wrapping`，可产出 `mesh` 与 `mesh_textured`。可通过 `options.mesh_route` 切换：
+
+```json
+{
+  "outputs": ["mesh"],
+  "options": {
+    "mesh_route": "3dgs_first",
+    "stage_presets": {
+      "3dgs": "mid",
+      "gaussian-wrapping": "high_geo_tex"
+    }
+  }
+}
+```
+
+`mesh_first` 为默认路线；`3dgs_first` 保留旧的 `colmap → 3dgs → gaussian-wrapping` 流程。`gw-train` 训练档位可通过 `stage_presets.gw-train` 选择 `small`、`mid`、`high`。
 
 可选导出 OBJ、GLB：
 

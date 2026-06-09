@@ -3,6 +3,7 @@ from __future__ import annotations
 from ..domain.input_modes import get_input_mode, is_native_3dgs_ply_mode
 from ..domain.jobs import JobSpec
 from ..domain.mesh_formats import validate_mesh_export_options
+from ..domain.mesh_route import get_mesh_route, mesh_required_stages
 from ..domain.pipeline import (
     INPUT_MODE_DEFINITIONS,
     KNOWN_OUTPUT_IDS,
@@ -45,9 +46,13 @@ def plan_pipeline(spec: JobSpec) -> PipelinePlan:
             output_def = OUTPUT_DEFINITIONS[output_id]
             stage_set.update(output_def.ply_mode_stages or output_def.required_stages)
     else:
+        mesh_route = get_mesh_route(spec.options) if "mesh" in outputs else None
         for output_id in outputs:
-            for stage_id in OUTPUT_DEFINITIONS[output_id].required_stages:
-                stage_set.add(stage_id)
+            if output_id == "mesh":
+                stage_set.update(mesh_required_stages(mesh_route))
+            else:
+                for stage_id in OUTPUT_DEFINITIONS[output_id].required_stages:
+                    stage_set.add(stage_id)
 
     if spec.advanced and spec.advanced.get("stages"):
         advanced_stages = [str(item) for item in spec.advanced["stages"]]

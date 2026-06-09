@@ -54,6 +54,7 @@ class JobPaths:
     def stage_config_path(self, stage_id: str) -> Path:
         filename = {
             "3dgs": "3dgs.yaml",
+            "gw-train": "gw-train.yaml",
             "colmap": "colmap.yaml",
             "langsplat": "langsplat.yaml",
             "gaussian-wrapping": "gaussian-wrapping.yaml",

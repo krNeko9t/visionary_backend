@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import docker
 
-from ...config.loader import load_gaussian_wrapping_job_config, load_gs_job_config
+from ...config.loader import load_gaussian_wrapping_job_config
 from ...container.mount import resolve_host_job_path
 from ...domain.jobs import Artifact
 from ...jobs.paths import JobPaths
@@ -13,7 +13,7 @@ from ...workers.contract import WorkerResult, make_progress_event
 from ..inputs import missing_gaussian_wrapping_inputs
 from .build_extract_command import build_extract_command
 from .predict_output_names import predict_output_names
-from .resolve_3dgs_output_for_extract import resolve
+from .resolve_3dgs_output_for_extract import resolve_for_job
 
 STAGE_ID = "gaussian-wrapping"
 
@@ -26,9 +26,8 @@ def run(settings: Settings, paths: JobPaths) -> WorkerResult:
     stage_dir = paths.stage_dir(STAGE_ID)
     stage_dir.mkdir(parents=True, exist_ok=True)
     config = load_gaussian_wrapping_job_config(settings, paths)
-    gs_config = load_gs_job_config(settings, paths)
-    upstream = resolve(paths, gs_config)
-    output_relative = gs_config.output_relative
+    upstream = resolve_for_job(settings, paths)
+    output_relative = upstream.model_path.removeprefix("/job/")
 
     append_progress_event(
         paths.stage_events_file(STAGE_ID),

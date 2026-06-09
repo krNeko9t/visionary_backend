@@ -14,6 +14,7 @@ from ..config.registry import STAGE_IDS, stage_preset_paths
 from ..domain.input_modes import get_iteration, is_native_3dgs_ply_mode
 from ..domain.mesh_formats import SUPPORTED_MESH_FORMATS
 from ..domain.jobs import JobSpec, JobState, ProgressEvent, now_iso
+from ..domain.mesh_route import MESH_ROUTES, DEFAULT_MESH_ROUTE
 from ..domain.pipeline import INPUT_MODE_DEFINITIONS, OUTPUT_DEFINITIONS, STAGE_DEFINITIONS
 from ..jobs.paths import JobPaths
 from ..jobs.storage import read_job_state, read_progress_events, write_job_state
@@ -125,6 +126,8 @@ class JobService:
     def capabilities() -> dict[str, Any]:
         return {
             "mesh_formats": sorted(SUPPORTED_MESH_FORMATS),
+            "mesh_routes": sorted(MESH_ROUTES),
+            "default_mesh_route": DEFAULT_MESH_ROUTE,
             "input_modes": [
                 {
                     "id": mode.id,

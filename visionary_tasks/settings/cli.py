@@ -34,7 +34,12 @@ def format_negatable_bool(
     *,
     true_flag: str | None = None,
     false_flag: str | None = None,
+    hyphen_negation: bool = False,
 ) -> list[str]:
     if value:
         return [true_flag or f"--{key}"]
-    return [false_flag or f"--no_{key}"]
+    if false_flag is not None:
+        return [false_flag]
+    if hyphen_negation:
+        return [f"--no-{key}"]
+    return [f"--no_{key}"]

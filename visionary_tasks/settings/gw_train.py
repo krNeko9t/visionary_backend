@@ -179,14 +179,24 @@ class GwTrainJobConfig:
 
         gw = self.gw
         command.extend(format_cli_arg("rasterizer", gw.rasterizer))
-        command.extend(format_negatable_bool("exposure_compensation", gw.exposure_compensation))
-        command.extend(format_negatable_bool("multiview", gw.multiview))
+        command.extend(
+            format_negatable_bool(
+                "exposure_compensation", gw.exposure_compensation, hyphen_negation=True
+            )
+        )
+        command.extend(
+            format_negatable_bool("multiview", gw.multiview, hyphen_negation=True)
+        )
         command.extend(format_cli_arg("multiview_config", gw.multiview_config))
         command.extend(format_cli_arg("multiview_factor", gw.multiview_factor))
         command.extend(format_cli_arg("regularization_from_iter", gw.regularization_from_iter))
         command.extend(format_cli_arg("lambda_depth_normal", gw.lambda_depth_normal))
         command.extend(
-            format_negatable_bool("use_max_size_threshold", gw.use_max_size_threshold)
+            format_negatable_bool(
+                "use_max_size_threshold",
+                gw.use_max_size_threshold,
+                hyphen_negation=True,
+            )
         )
         command.extend(format_cli_arg("normal_field_config", gw.normal_field_config))
         if gw.N_max_gaussians is not None:

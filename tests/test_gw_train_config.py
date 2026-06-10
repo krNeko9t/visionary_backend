@@ -52,3 +52,5 @@ def test_gw_train_to_train_command(tmp_path: Path):
     assert command[command.index("--iterations") + 1] == "12000"
     assert "--rasterizer" in command
     assert "ours" in command
+    assert "--no-use_max_size_threshold" in command
+    assert "--no_use_max_size_threshold" not in command

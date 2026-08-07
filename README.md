@@ -26,21 +26,24 @@ cd visionary_backend_upload
 git submodule update --init --recursive
 ```
 
-### 3) 启动后端
+### 3) 启动后端和前端 demo
 
 ```powershell
-docker compose up --build task-server
+docker compose up -d --build task-server web-demo
 ```
 
-### 4) 启动前端 demo
+查看启动状态与日志：
 
 ```powershell
-docker compose up -d web-demo
+docker compose ps
+docker compose logs -f task-server web-demo
 ```
 
 访问：`http://localhost:5173`
 
-### 5) 提前构建工具镜像
+`web-demo` 会等待 `task-server` 健康后再启动，并通过 Compose 内部网络访问 API。
+
+### 4) 提前构建工具镜像
 
 完整流水线包含 `langsplat` 与 `gaussian-wrapping` 时，建议提前构建 tools profile：
 
@@ -152,8 +155,8 @@ jobs/{job_id}/
 
 ## 常见问题
 
-- `5173` 打不开：确认 `web-demo` 已启动且端口未占用
-- 任务创建失败：检查 `http://localhost:8000/healthz`
+- `5173` 打不开：执行 `docker compose ps`，确认 `task-server` 为 `healthy` 且 `web-demo` 已启动
+- 页面提示任务服务连接失败：检查 `docker compose logs task-server` 和 `http://localhost:8000/healthz`
 - GPU 报错：检查 Docker GPU 支持与显卡驱动
 - `gaussian-wrapping` 构建失败：确认 BuildKit 已开启
 

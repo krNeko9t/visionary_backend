@@ -7,6 +7,16 @@ services:
     container_name: visionary-task-server
     ports:
       - "8000:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)"
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
     volumes:
       - ./data:/data
       - ./ckpts:/workspace/ckpts:ro
@@ -25,9 +35,14 @@ services:
     ports:
       - "5173:5173"
     environment:
-      VITE_API_BASE_URL: http://localhost:8000
+      # 浏览器只访问 5173；Vite 在 Compose 网络内把 /api 转发给 task-server。
+      VITE_PROXY_TARGET: http://task-server:8000
+    depends_on:
+      task-server:
+        condition: service_healthy
     volumes:
       - ./client-demo:/app
+      - /app/node_modules
 
   colmap-worker:
     build:

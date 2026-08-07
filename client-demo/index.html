@@ -57,6 +57,19 @@
         color: #666;
         font-size: 14px;
       }
+      .notice {
+        border-radius: 6px;
+        margin: 10px 0 14px;
+        padding: 10px 12px;
+      }
+      .notice.loading {
+        background: #eef2ff;
+        color: #3730a3;
+      }
+      .notice.error {
+        background: #f8d7da;
+        color: #842029;
+      }
       .options-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -120,6 +133,10 @@
     <div class="panel">
       <h3>1) 创建任务</h3>
 
+      <div id="capabilitiesStatus" class="notice loading" role="status">
+        正在连接任务服务并加载可选项...
+      </div>
+
       <div class="row options-grid">
         <div>
           <strong>输入模式</strong>
@@ -177,7 +194,7 @@
         <div id="plannedStagesPreview" class="chip-list"></div>
       </div>
 
-      <button id="uploadBtn">上传并创建任务</button>
+      <button id="uploadBtn" disabled>上传并创建任务</button>
       <button id="reloadCapabilitiesBtn" type="button">重新加载 capabilities</button>
     </div>
 

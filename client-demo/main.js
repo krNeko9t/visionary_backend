@@ -1,6 +1,6 @@
-const apiBase = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-  ? "http://localhost:8000"
-  : (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000");
+// 默认走当前页面的同源 /api，由 Vite 转发到 Compose 网络里的 task-server。
+// 独立部署前端时仍可在构建阶段通过 VITE_API_BASE_URL 指向外部 API。
+const apiBase = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
 
 const inputModeGroup = document.getElementById("inputModeGroup");
 const stagePresetGroup = document.getElementById("stagePresetGroup");
@@ -18,6 +18,7 @@ const plannedStagesPreview = document.getElementById("plannedStagesPreview");
 const uploadBtn = document.getElementById("uploadBtn");
 const reloadCapabilitiesBtn = document.getElementById("reloadCapabilitiesBtn");
 const cancelBtn = document.getElementById("cancelBtn");
+const capabilitiesStatus = document.getElementById("capabilitiesStatus");
 
 const jobIdEl = document.getElementById("jobId");
 const statusEl = document.getElementById("status");
@@ -35,6 +36,12 @@ let timer = null;
 
 function setDebug(payload) {
   debugOutput.textContent = JSON.stringify(payload, null, 2);
+}
+
+function setCapabilitiesStatus(message, state) {
+  capabilitiesStatus.textContent = message;
+  capabilitiesStatus.className = `notice ${state}`;
+  capabilitiesStatus.classList.toggle("hidden", !message);
 }
 
 function getInputMode() {
@@ -187,10 +194,14 @@ function renderCapabilities(data) {
   }
 
   updateModeUi();
+  setCapabilitiesStatus("", "");
   setDebug({ capabilities: data });
 }
 
 async function loadCapabilities() {
+  setCapabilitiesStatus("正在连接任务服务并加载可选项...", "loading");
+  reloadCapabilitiesBtn.disabled = true;
+  uploadBtn.disabled = true;
   try {
     const response = await fetch(`${apiBase}/api/v1/capabilities`);
     if (!response.ok) {
@@ -199,8 +210,15 @@ async function loadCapabilities() {
     const data = await response.json();
     renderCapabilities(data);
   } catch (error) {
-    setDebug({ error: error.message });
-    alert(error.message);
+    const message = `任务服务连接失败：${error.message}。请检查 task-server 是否健康后重试。`;
+    setCapabilitiesStatus(message, "error");
+    setDebug({
+      error: message,
+      endpoint: `${apiBase}/api/v1/capabilities`,
+    });
+  } finally {
+    reloadCapabilitiesBtn.disabled = false;
+    uploadBtn.disabled = !capabilities;
   }
 }
 

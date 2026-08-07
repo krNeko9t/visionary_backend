@@ -24,27 +24,26 @@ git clone --recurse-submodules <你的仓库地址>
 git submodule update --init --recursive
 ```
 
-## 启动后端
+## 启动后端与前端演示页面
 
 ```powershell
-docker compose up --build task-server
-docker compose stop task-server
+docker compose up -d --build task-server web-demo
 ```
 
 启动后可访问：
 
 - 健康检查：`http://localhost:8000/healthz`
 - OpenAPI 文档：`http://localhost:8000/docs`
+- 前端演示页：`http://localhost:5173`
 
-## 启动前端演示页面
+`web-demo` 会等待 `task-server` 健康后再启动。浏览器请求同源 `/api`，由 Vite 通过 Compose 内部网络转发给后端，因此用局域网 IP 访问页面时也不会错误连接到访问者自己的 `localhost:8000`。
+
+查看启动状态与日志：
 
 ```powershell
-docker compose up -d web-demo
+docker compose ps
+docker compose logs -f task-server web-demo
 ```
-
-访问：`http://localhost:5173`
-
-页面默认请求 `http://localhost:8000`。
 
 ### 页面使用步骤
 
@@ -80,8 +79,8 @@ docker compose --profile tools build colmap-worker langsplat-worker gaussian-wra
 
 ## 常见问题
 
-- 页面打不开 5173：执行 `docker compose ps` 确认 web-demo 在运行
-- 创建任务失败：检查 `http://localhost:8000/healthz` 是否返回 `{"status":"ok"}`
+- 页面打不开 5173：执行 `docker compose ps`，确认 task-server 为 `healthy` 且 web-demo 在运行
+- 页面提示任务服务连接失败：检查 `docker compose logs task-server`；健康检查应返回 `{"status":"ok"}`
 - GPU 相关错误：检查 Docker GPU 支持与显卡驱动
 - LangSplat 报缺少 SAM 权重：确认 `ckpts/sam_vit_h_4b8939.pth` 存在，并重启 `task-server`
 - 构建 gaussian-wrapping-worker 报 BuildKit 错误：执行 `$env:DOCKER_BUILDKIT=1`

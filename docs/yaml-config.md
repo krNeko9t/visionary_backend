@@ -117,6 +117,7 @@
 
 | 参数 | 默认 | 作用 |
 |------|------|------|
+| `runtime.worker_image` | `visionary-3dgs-worker:local` | 执行训练的 Docker worker 镜像 |
 | `training.output_iteration` | `30000` | 下游读取的 PLY 与 checkpoint 迭代 |
 | `optimization.iterations` | `30000` | 总训练步数 |
 | `model.resolution` | `-1` | 训练图像缩放 |
@@ -163,9 +164,8 @@
 
 ## Worker 镜像
 
-镜像名在 `config/*.yaml` 的 `worker_image` 或 `runtime.worker_image` 中配置，也可通过 compose 环境覆盖。
+镜像名在 `config/*.yaml` 的 `worker_image` 或 `runtime.worker_image` 中配置。3DGS 默认使用 `visionary-3dgs-worker:local`，由 Compose 的 `3dgs-worker` 服务构建。
 
 ## mesh 格式导出
 
 `spec.options.mesh_formats` 控制 mesh 派生格式，不属于 stage YAML 参数，也不会写入 `config/*.yaml`。默认 `["ply"]` 仅保留 worker 原始 PLY；需要 OBJ 或 GLB 时在创建任务的 `spec.options` 中指定。
-

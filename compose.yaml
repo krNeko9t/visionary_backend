@@ -25,8 +25,6 @@ services:
       - ./visionary_tasks:/workspace/visionary_tasks
       # 生产环境：取消注释下一行，用 production.yaml 覆盖 active.yaml
       # - ./visionary_tasks/configs/server/production.yaml:/workspace/visionary_tasks/configs/server/active.yaml:ro
-    gpus: all
-
   web-demo:
     image: node:20-alpine
     container_name: visionary-web-demo
@@ -49,6 +47,14 @@ services:
       context: .
       dockerfile: docker/colmap-worker/Dockerfile
     image: visionary-colmap-worker:local
+    profiles:
+      - tools
+
+  3dgs-worker:
+    build:
+      context: ./docker_workers/GaussianSplatting
+      dockerfile: Dockerfile
+    image: visionary-3dgs-worker:local
     profiles:
       - tools
 

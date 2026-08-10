@@ -26,7 +26,33 @@ cd visionary_backend_upload
 git submodule update --init --recursive
 ```
 
-### 3) 启动后端和前端 demo
+### 3) 构建 Worker 镜像
+
+默认的点云重建需要 COLMAP 和 3DGS 两个 worker：
+
+```powershell
+docker compose --profile tools build colmap-worker 3dgs-worker
+```
+
+要使用全部流水线，首次使用及 worker 依赖变化后构建全部工具镜像：
+
+```powershell
+docker compose --profile tools build
+```
+
+构建 3DGS 时如需指定显卡 CUDA 架构，例如 `8.6`：
+
+```powershell
+docker compose --profile tools build --build-arg TORCH_CUDA_ARCH_LIST=8.6 3dgs-worker
+```
+
+构建 `gaussian-wrapping-worker` 需 BuildKit。失败时先执行：
+
+```powershell
+$env:DOCKER_BUILDKIT=1
+```
+
+### 4) 启动后端和前端 demo
 
 ```powershell
 docker compose up -d --build task-server web-demo
@@ -43,23 +69,9 @@ docker compose logs -f task-server web-demo
 
 `web-demo` 会等待 `task-server` 健康后再启动，并通过 Compose 内部网络访问 API。
 
-### 4) 提前构建工具镜像
-
-完整流水线包含 `langsplat` 与 `gaussian-wrapping` 时，建议提前构建 tools profile：
-
-```powershell
-docker compose --profile tools build colmap-worker langsplat-worker gaussian-wrapping-worker 3dgs-to-pc-worker
-```
-
-构建 `gaussian-wrapping-worker` 需 BuildKit。失败时先执行：
-
-```powershell
-$env:DOCKER_BUILDKIT=1
-```
-
 ## 架构概览
 
-Task Server 负责接收任务、规划阶段、启动 worker、汇总状态。Worker 通过标准结果文件回报产物与进度事件。
+Task Server 是不需要 GPU 的轻量 CPU 服务，负责接收任务、规划阶段、通过 Docker 启动一次性 worker、汇总状态。COLMAP、3DGS、LangSplat、Gaussian Wrapping 和 3DGS-to-PC 均在各自的 worker 镜像中运行，通过挂载的 job 目录交换输入与产物。
 
 调用方通过 `outputs` 表达目标产物，服务端自动规划所需阶段。高级调试可通过 `spec.advanced` 覆盖阶段列表与阶段配置。
 
@@ -157,7 +169,9 @@ jobs/{job_id}/
 
 - `5173` 打不开：执行 `docker compose ps`，确认 `task-server` 为 `healthy` 且 `web-demo` 已启动
 - 页面提示任务服务连接失败：检查 `docker compose logs task-server` 和 `http://localhost:8000/healthz`
+- 提示找不到 `visionary-3dgs-worker:local`：执行 `docker compose --profile tools build 3dgs-worker`
 - GPU 报错：检查 Docker GPU 支持与显卡驱动
+- 3DGS 上游源码固定在 `docker_workers/GaussianSplatting/source` 子模块；镜像构建时提示源码缺失，执行 `git submodule update --init --recursive`
 - `gaussian-wrapping` 构建失败：确认 BuildKit 已开启
 
 ## 进一步阅读

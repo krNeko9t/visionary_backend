@@ -27,6 +27,7 @@ def _ensure_iteration_present(values: list[int], iteration: int, field_name: str
 
 @dataclass
 class GsRuntimeConfig:
+    worker_image: str = "visionary-3dgs-worker:local"
     output_relative: str = "output"
 
 
@@ -108,6 +109,10 @@ class GsJobConfig:
     @property
     def output_relative(self) -> str:
         return self.runtime.output_relative
+
+    @property
+    def worker_image(self) -> str:
+        return self.runtime.worker_image
 
     @classmethod
     def from_merged_dict(cls, payload: dict[str, Any]) -> "GsJobConfig":

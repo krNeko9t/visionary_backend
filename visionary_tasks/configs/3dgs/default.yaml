@@ -1,4 +1,5 @@
 runtime:
+  worker_image: visionary-3dgs-worker:local
   output_relative: output
 
 model:

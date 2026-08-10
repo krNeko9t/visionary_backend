@@ -9,7 +9,6 @@ def _settings(ckpts_root: Path) -> Settings:
     return Settings(
         data_root=Path("/data"),
         jobs_root=Path("/data/jobs"),
-        gs_repo_path=Path("/workspace/gaussian-splatting"),
         ckpts_root=ckpts_root,
         langsplat_repo_path=None,
         task_server_container_name="visionary-task-server",

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import docker
+
 from ..config.loader import load_gs_job_config
+from ..container.mount import resolve_host_job_path
 from ..domain.jobs import Artifact
 from ..jobs.paths import JobPaths
 from ..jobs.storage import append_progress_event, write_worker_result
 from ..settings import Settings
-from ..workers.adapters.subprocess import run_subprocess_worker
+from ..workers.adapters.docker import build_job_volumes, run_docker_worker
 from ..workers.contract import WorkerResult, make_progress_event
 from .inputs import missing_3dgs_inputs
 
@@ -25,11 +28,21 @@ def run(settings: Settings, paths: JobPaths) -> WorkerResult:
         make_progress_event(stage_id, event_type="started", message="3DGS 训练开始"),
     )
 
-    command = config.to_train_command(
-        str(paths.colmap_dir),
-        str(paths.output_dir(config.output_relative)),
+    client = docker.from_env()
+    try:
+        host_job_path = str(resolve_host_job_path(settings, paths.root, client))
+    finally:
+        client.close()
+
+    logs = run_docker_worker(
+        image=config.worker_image,
+        command=config.to_train_command(
+            "/job/colmap",
+            f"/job/{config.output_relative}",
+        ),
+        volumes=build_job_volumes(host_job_path),
+        label="3dgs",
     )
-    run_subprocess_worker(command=command, cwd=settings.gs_repo_path, label="3dgs")
 
     ply = paths.gs_output_ply(config.output_relative, config.output_iteration)
     if not ply.exists():
@@ -58,7 +71,7 @@ def run(settings: Settings, paths: JobPaths) -> WorkerResult:
             )
         )
 
-    result = WorkerResult(stage_id=stage_id, status="done", artifacts=artifacts)
+    result = WorkerResult(stage_id=stage_id, status="done", artifacts=artifacts, logs=logs)
     write_worker_result(paths.stage_result_file(stage_id), result)
     append_progress_event(
         paths.stage_events_file(stage_id),

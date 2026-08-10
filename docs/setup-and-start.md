@@ -1,13 +1,13 @@
 ﻿# 环境配置与启动
 
-本文档覆盖本地启动流程：启动后端 task-server，可选启动前端 demo 与构建工具镜像。
+本文档覆盖本地启动流程：构建所需 worker、启动轻量 CPU task-server，并可选启动前端 demo。
 
 ## 前置条件
 
 - Git
 - Docker Desktop
 - NVIDIA GPU
-- 完整流水线需要可用的 Docker GPU 支持，并提前构建 tools profile worker 镜像
+- 计算阶段需要可用的 Docker GPU 支持，并提前构建对应的 tools profile worker 镜像；task-server 本身不需要 GPU
 - 运行 `language_model` / LangSplat 时需要 SAM 权重文件 `ckpts/sam_vit_h_4b8939.pth`
 
 下载 SAM 权重：
@@ -22,6 +22,26 @@ Invoke-WebRequest -Uri "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_
 ```powershell
 git clone --recurse-submodules <你的仓库地址>
 git submodule update --init --recursive
+```
+
+## 构建 Worker 镜像
+
+默认 `point_cloud` 流水线需要：
+
+```powershell
+docker compose --profile tools build colmap-worker 3dgs-worker
+```
+
+要使用全部输出类型，可一次构建所有 worker 和 task-server：
+
+```powershell
+docker compose --profile tools build
+```
+
+3DGS 的 CUDA 扩展默认按 `TORCH_CUDA_ARCH_LIST=8.9` 构建。显卡架构不同时传入对应值，例如：
+
+```powershell
+docker compose --profile tools build --build-arg TORCH_CUDA_ARCH_LIST=8.6 3dgs-worker
 ```
 
 ## 启动后端与前端演示页面
@@ -54,21 +74,13 @@ docker compose logs -f task-server web-demo
 5. 等待状态变为 `done`
 6. 下载产物
 
-## 提前构建工具镜像
-
-完整流水线、`language_model` 或 `native_3dgs_ply` mesh 任务需提前构建 tools profile 镜像：
-
-```powershell
-docker compose --profile tools build colmap-worker langsplat-worker gaussian-wrapping-worker 3dgs-to-pc-worker
-```
-
 ## 配置覆盖
 
 全局默认配置位于 `visionary_tasks/configs/`。单任务配置在 `data/jobs/{job_id}/config/`。
 
 创建任务时可通过 `spec.advanced.stage_overrides` 覆盖阶段参数，详见 `docs/yaml-config.md`。
 
-服务级配置位于 `visionary_tasks/configs/server/active.yaml`，包含 `jobs_root`、`gs_repo_path`、`ckpts_root`、`langsplat_repo_path`、CORS 等。
+服务级配置位于 `visionary_tasks/configs/server/active.yaml`，包含 `jobs_root`、`ckpts_root`、`langsplat_repo_path`、task-server 容器名及 CORS 等。3DGS 镜像由 `configs/3dgs/default.yaml` 的 `runtime.worker_image` 配置。
 
 默认 compose 已挂载：
 
@@ -81,6 +93,8 @@ docker compose --profile tools build colmap-worker langsplat-worker gaussian-wra
 
 - 页面打不开 5173：执行 `docker compose ps`，确认 task-server 为 `healthy` 且 web-demo 在运行
 - 页面提示任务服务连接失败：检查 `docker compose logs task-server`；健康检查应返回 `{"status":"ok"}`
+- 找不到 3DGS worker 镜像：执行 `docker compose --profile tools build 3dgs-worker`
+- 3DGS 上游源码位于 `docker_workers/GaussianSplatting/source` 子模块；构建时提示源码缺失，执行 `git submodule update --init --recursive`
 - GPU 相关错误：检查 Docker GPU 支持与显卡驱动
 - LangSplat 报缺少 SAM 权重：确认 `ckpts/sam_vit_h_4b8939.pth` 存在，并重启 `task-server`
 - 构建 gaussian-wrapping-worker 报 BuildKit 错误：执行 `$env:DOCKER_BUILDKIT=1`

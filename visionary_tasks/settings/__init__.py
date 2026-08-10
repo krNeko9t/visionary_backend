@@ -38,7 +38,6 @@ class CorsSettings:
 class Settings:
     data_root: Path
     jobs_root: Path
-    gs_repo_path: Path
     ckpts_root: Path
     langsplat_repo_path: Path | None
     task_server_container_name: str
@@ -72,7 +71,6 @@ def load_server_settings(path: Path | None = None) -> Settings:
     return Settings(
         data_root=Path(str(payload.get("data_root", "/data"))),
         jobs_root=Path(str(payload.get("jobs_root", "/data/jobs"))),
-        gs_repo_path=Path(str(payload.get("gs_repo_path", "/workspace/gaussian-splatting"))),
         ckpts_root=Path(str(payload.get("ckpts_root", "/workspace/ckpts"))),
         langsplat_repo_path=(
             Path(str(payload["langsplat_repo_path"]))

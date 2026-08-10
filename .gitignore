@@ -5,7 +5,7 @@ dist/
 data/
 ckpts/
 
-# docker_workers vendored build sources — ignore local build/cache artifacts
+# docker_workers build sources — ignore local build/cache artifacts
 docker_workers/**/__pycache__/
 docker_workers/**/*.py[cod]
 docker_workers/**/.pytest_cache/

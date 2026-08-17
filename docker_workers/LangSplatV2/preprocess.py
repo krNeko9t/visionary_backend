@@ -8,6 +8,8 @@ from tqdm import tqdm
 from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 import cv2
 
+from utils.mask_processing import crop_masked_region
+
 from dataclasses import dataclass, field
 from typing import Tuple, Type
 from copy import deepcopy
@@ -124,8 +126,12 @@ def create(image_list, data_list, save_folder):
         timer += 1
         try:
             img_embed, seg_map = _embed_clip_sam_tiles(img.unsqueeze(0), sam_encoder)
-        except:
-            raise ValueError(timer)
+        except Exception as exc:
+            image_name = data_list[i] if i < len(data_list) else f"index={i}"
+            raise RuntimeError(
+                "LangSplat preprocessing failed for "
+                f"image {timer}/{len(image_list)} ({image_name})"
+            ) from exc
 
         lengths = [len(v) for k, v in img_embed.items()]
         total_length = sum(lengths)
@@ -189,11 +195,7 @@ def _embed_clip_sam_tiles(image, sam_encoder):
     return clip_embeds, seg_map
 
 def get_seg_img(mask, image):
-    image = image.copy()
-    image[mask['segmentation']==0] = np.array([0, 0,  0], dtype=np.uint8)
-    x,y,w,h = np.int32(mask['bbox'])
-    seg_img = image[y:y+h, x:x+w, ...]
-    return seg_img
+    return crop_masked_region(image, mask['segmentation'])
 
 def pad_img(img):
     h, w, _ = img.shape

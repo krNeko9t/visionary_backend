@@ -65,8 +65,13 @@ services:
     image: langsplatv2:pt241
     profiles:
       - tools
+    environment:
+      HF_HOME: /cache/models/huggingface
+      HF_HUB_CACHE: /cache/models/huggingface/hub
+      TORCH_HOME: /cache/models/torch
     volumes:
-      - ./ckpts:/workspace/ckpts
+      - ./ckpts:/workspace/ckpts:ro
+      - ./data/cache/models:/cache/models
       - ./docker_workers/LangSplatV2/train.py:/workspace/train.py
       - ./docker_workers/LangSplatV2/preprocess.py:/workspace/preprocess.py
       - ./docker_workers/LangSplatV2/export_lsv2_final_product.py:/workspace/export_lsv2_final_product.py

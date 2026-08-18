@@ -10,6 +10,8 @@ if TYPE_CHECKING:
     from docker import DockerClient
 
 SAM_CKPT_FILENAME = "sam_vit_h_4b8939.pth"
+MODEL_CACHE_RELATIVE = Path("cache/models")
+MODEL_CACHE_WORKER_ROOT = Path("/cache/models")
 
 
 @dataclass(frozen=True)
@@ -50,6 +52,36 @@ class MountedAsset:
         return {host: {"bind": bind, "mode": "ro"}}
 
 
+@dataclass(frozen=True)
+class MountedModelCache:
+    """跨一次性 worker 复用的可写模型下载缓存。"""
+
+    task_path: Path
+    worker_path: Path = MODEL_CACHE_WORKER_ROOT
+
+    @classmethod
+    def from_settings(cls, settings: Settings) -> MountedModelCache:
+        return cls(settings.data_root / MODEL_CACHE_RELATIVE)
+
+    @property
+    def worker_environment(self) -> dict[str, str]:
+        huggingface_root = self.worker_path / "huggingface"
+        return {
+            "HF_HOME": huggingface_root.as_posix(),
+            "HF_HUB_CACHE": (huggingface_root / "hub").as_posix(),
+            "TORCH_HOME": (self.worker_path / "torch").as_posix(),
+        }
+
+    def docker_volume(
+        self,
+        settings: Settings,
+        client: DockerClient,
+    ) -> dict[str, dict[str, str]]:
+        self.task_path.mkdir(parents=True, exist_ok=True)
+        host = str(resolve_host_path(settings, self.task_path, client))
+        return {host: {"bind": self.worker_path.as_posix(), "mode": "rw"}}
+
+
 def resolve_host_mount_path(
     settings: Settings,
     container_path: Path,
@@ -66,23 +98,36 @@ def resolve_host_mount_path(
     raise RuntimeError(f"无法解析容器挂载的宿主机路径: {target}")
 
 
-def resolve_host_job_path(
+def resolve_host_path(
     settings: Settings,
-    job_root: Path,
+    container_path: Path,
     client: DockerClient,
 ) -> Path:
+    """把 task-server 内的路径映射为宿主机路径，支持挂载点下的子目录。"""
+
     task_container = client.containers.get(settings.task_server_container_name)
     mounts = task_container.attrs.get("Mounts", [])
-    job_root_str = job_root.as_posix()
+    target = Path(container_path.as_posix())
+    candidates: list[tuple[int, Path]] = []
     for mount in mounts:
         destination = mount.get("Destination")
         source = mount.get("Source")
         if not destination or not source:
             continue
-        destination_posix = str(destination).rstrip("/")
-        if job_root_str.startswith(destination_posix):
-            relative = job_root_str[len(destination_posix) :].lstrip("/")
-            if relative:
-                return Path(source) / relative
-            return Path(source)
-    raise RuntimeError(f"无法解析 job 目录的宿主机路径: {job_root_str}")
+        destination_path = Path(str(destination).rstrip("/") or "/")
+        try:
+            relative = target.relative_to(destination_path)
+        except ValueError:
+            continue
+        candidates.append((len(destination_path.parts), Path(str(source)) / relative))
+    if candidates:
+        return max(candidates, key=lambda item: item[0])[1]
+    raise RuntimeError(f"无法解析容器路径对应的宿主机路径: {target.as_posix()}")
+
+
+def resolve_host_job_path(
+    settings: Settings,
+    job_root: Path,
+    client: DockerClient,
+) -> Path:
+    return resolve_host_path(settings, job_root, client)

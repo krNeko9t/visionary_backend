@@ -92,6 +92,8 @@ jobs/{job_id}/
   langsplat_export/
 ```
 
+任务之外的共享运行数据位于 `data/cache/models/`。LangSplat 的一次性 worker 会在这里缓存 OpenCLIP 等自动下载的模型；人工准备的固定权重仍放在只读的 `ckpts/`。
+
 - `state/job.json`：任务状态、阶段状态、产物索引
 - `input/`：上传原图
 - `config/*.yaml`：创建任务时物化的阶段配置

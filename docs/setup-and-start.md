@@ -89,6 +89,8 @@ docker compose logs -f task-server web-demo
 - `./docker_workers/LangSplatV2:/workspace/langsplat-src:ro`：LangSplat live code
 - `./visionary_tasks:/workspace/visionary_tasks`：服务代码与配置
 
+`data/cache/models/` 是可删除、可重建的共享模型下载缓存。LangSplat worker 会把它挂载到 `/cache/models`，供预处理和最终导出复用 OpenCLIP 权重；`ckpts/` 保持为只读固定权重目录。
+
 ## 常见问题
 
 - 页面打不开 5173：执行 `docker compose ps`，确认 task-server 为 `healthy` 且 web-demo 在运行
@@ -97,4 +99,5 @@ docker compose logs -f task-server web-demo
 - 3DGS 上游源码位于 `docker_workers/GaussianSplatting/source` 子模块；构建时提示源码缺失，执行 `git submodule update --init --recursive`
 - GPU 相关错误：检查 Docker GPU 支持与显卡驱动
 - LangSplat 报缺少 SAM 权重：确认 `ckpts/sam_vit_h_4b8939.pth` 存在，并重启 `task-server`
+- LangSplat 下载 OpenCLIP 失败：确认主机可访问 Hugging Face，且 `data/cache/models/` 可写；`HF_TOKEN` 警告只表示未认证限流，不是只读文件系统错误
 - 构建 gaussian-wrapping-worker 报 BuildKit 错误：执行 `$env:DOCKER_BUILDKIT=1`

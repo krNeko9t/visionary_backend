@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from collections.abc import Mapping
 
 import docker
 from docker.errors import DockerException
@@ -15,6 +15,7 @@ def run_docker_worker(
     image: str,
     command: list[str],
     volumes: dict[str, dict[str, str]],
+    environment: Mapping[str, str] | None = None,
     use_gpu: bool = True,
     label: str = "worker",
 ) -> str | None:
@@ -31,6 +32,7 @@ def run_docker_worker(
             image,
             command=command,
             volumes=volumes,
+            environment=dict(environment) if environment is not None else None,
             device_requests=device_requests,
             remove=True,
             stderr=True,

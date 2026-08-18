@@ -3,7 +3,12 @@ from __future__ import annotations
 import docker
 
 from ..config.loader import load_gs_job_config, load_langsplat_job_config
-from ..container.mount import MountedAsset, resolve_host_job_path, resolve_host_mount_path
+from ..container.mount import (
+    MountedAsset,
+    MountedModelCache,
+    resolve_host_job_path,
+    resolve_host_mount_path,
+)
 from ..domain.jobs import Artifact
 from ..jobs.paths import JobPaths
 from ..jobs.storage import append_progress_event, write_worker_result
@@ -29,6 +34,7 @@ def run(settings: Settings, paths: JobPaths) -> WorkerResult:
     feature_levels = config.training_feature_levels()
     export_checkpoint = config.export_checkpoint()
     sam_ckpt = MountedAsset.sam_checkpoint(settings)
+    model_cache = MountedModelCache.from_settings(settings)
 
     append_progress_event(
         paths.stage_events_file(STAGE_ID),
@@ -48,6 +54,7 @@ def run(settings: Settings, paths: JobPaths) -> WorkerResult:
         )
         volumes = build_job_volumes(host_job_path, JOB_MOUNT)
         volumes = extend_volumes(volumes, sam_ckpt.docker_volume(settings, client))
+        volumes = extend_volumes(volumes, model_cache.docker_volume(settings, client))
         if langsplat_repo_host:
             volumes = extend_volumes(volumes, build_langsplat_live_code_volumes(langsplat_repo_host))
     finally:
@@ -61,6 +68,7 @@ def run(settings: Settings, paths: JobPaths) -> WorkerResult:
         image=runtime.worker_image,
         command=preprocess_cmd,
         volumes=volumes,
+        environment=model_cache.worker_environment,
         label="langsplat preprocess",
     )
     append_progress_event(
@@ -84,6 +92,7 @@ def run(settings: Settings, paths: JobPaths) -> WorkerResult:
             image=runtime.worker_image,
             command=train_cmd,
             volumes=volumes,
+            environment=model_cache.worker_environment,
             label=f"langsplat train L{feature_level}",
         )
         model_dir = paths.langsplat_model_dir(runtime.model_relative, feature_level)
@@ -113,6 +122,7 @@ def run(settings: Settings, paths: JobPaths) -> WorkerResult:
         image=runtime.worker_image,
         command=export_cmd,
         volumes=volumes,
+        environment=model_cache.worker_environment,
         label="langsplat export",
     )
 

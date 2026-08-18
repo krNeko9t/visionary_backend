@@ -17,13 +17,10 @@
 from __future__ import annotations
 
 import json
-import os
 from argparse import ArgumentParser
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
-
-os.environ.setdefault("HF_HUB_CACHE", "/workspace/ckpts/huggingface")
 
 import numpy as np
 import torch

@@ -4,6 +4,8 @@ from pathlib import Path
 
 from ..domain.input_modes import get_iteration, is_native_3dgs_ply_mode
 from ..domain.jobs import JobSpec
+from ..jobs.image_canvas import unify_image_canvases
+from ..jobs.image_names import ascii_image_filenames
 from ..jobs.paths import JobPaths
 from ..jobs.ply_validation import validate_native_3dgs_ply
 
@@ -25,7 +27,8 @@ def _ingest_images(files: list[tuple[str, bytes]], paths: JobPaths) -> None:
         raise ValueError("请至少上传一张图片")
     from ..jobs.storage import save_upload_files
 
-    saved = save_upload_files(files, paths.input_dir)
+    unified = ascii_image_filenames(unify_image_canvases(files))
+    saved = save_upload_files(unified, paths.input_dir)
     if saved == 0:
         raise ValueError("未检测到有效文件名")
 

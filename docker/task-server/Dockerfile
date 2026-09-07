@@ -13,7 +13,8 @@ RUN pip install --no-cache-dir --upgrade pip \
         pydantic \
         docker \
         pyyaml \
-        trimesh
+        trimesh \
+        pillow
 
 COPY visionary_tasks /workspace/visionary_tasks
 

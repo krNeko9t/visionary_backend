@@ -20,7 +20,6 @@ services:
     volumes:
       - ./data:/data
       - ./ckpts:/workspace/ckpts:ro
-      - ./docker_workers/LangSplatV2:/workspace/langsplat-src:ro
       - /var/run/docker.sock:/var/run/docker.sock
       - ./visionary_tasks:/workspace/visionary_tasks
       # 生产环境：取消注释下一行，用 production.yaml 覆盖 active.yaml
@@ -72,13 +71,6 @@ services:
     volumes:
       - ./ckpts:/workspace/ckpts:ro
       - ./data/cache/models:/cache/models
-      - ./docker_workers/LangSplatV2/train.py:/workspace/train.py
-      - ./docker_workers/LangSplatV2/preprocess.py:/workspace/preprocess.py
-      - ./docker_workers/LangSplatV2/export_lsv2_final_product.py:/workspace/export_lsv2_final_product.py
-      - ./docker_workers/LangSplatV2/scene:/workspace/scene:ro
-      - ./docker_workers/LangSplatV2/eval:/workspace/eval:ro
-      - ./docker_workers/LangSplatV2/utils:/workspace/utils:ro
-      - ./docker_workers/LangSplatV2/arguments:/workspace/arguments:ro
 
   # GaussianWrapping Dockerfile 使用 RUN --mount=type=cache，需 BuildKit。
   # Docker Desktop 默认已开启；若 build 失败，先执行：$env:DOCKER_BUILDKIT=1

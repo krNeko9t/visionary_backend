@@ -166,6 +166,8 @@
 
 镜像名在 `config/*.yaml` 的 `worker_image` 或 `runtime.worker_image` 中配置。3DGS 默认使用 `visionary-3dgs-worker:local`，由 Compose 的 `3dgs-worker` 服务构建。
 
+Worker 运行镜像内的脚本。改业务 Python 后执行 `docker compose --profile tools build <service>`；CUDA 扩展与业务代码分层，通常只重建最后一层。task-server 代码由 compose 挂载，改完重启服务即可。详见 `docs/setup-and-start.md`。
+
 ## mesh 格式导出
 
 `spec.options.mesh_formats` 控制 mesh 派生格式，不属于 stage YAML 参数，也不会写入 `config/*.yaml`。默认 `["ply"]` 仅保留 worker 原始 PLY；需要 OBJ 或 GLB 时在创建任务的 `spec.options` 中指定。

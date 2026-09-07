@@ -10,7 +10,6 @@ def _settings(ckpts_root: Path) -> Settings:
         data_root=Path("/data"),
         jobs_root=Path("/data/jobs"),
         ckpts_root=ckpts_root,
-        langsplat_repo_path=None,
         task_server_container_name="visionary-task-server",
         cors=CorsSettings(
             allow_origins=("http://localhost:5173",),
@@ -70,7 +69,6 @@ def test_model_cache_uses_shared_writable_data_mount(tmp_path: Path):
         data_root=tmp_path / "data",
         jobs_root=tmp_path / "data/jobs",
         ckpts_root=tmp_path / "ckpts",
-        langsplat_repo_path=None,
         task_server_container_name="visionary-task-server",
         cors=CorsSettings(
             allow_origins=("http://localhost:5173",),
@@ -97,7 +95,10 @@ def test_model_cache_uses_shared_writable_data_mount(tmp_path: Path):
     assert cache.task_path == tmp_path / "data/cache/models"
     assert cache.task_path.is_dir()
     assert volume == {
-        "/host/project/data/cache/models": {"bind": "/cache/models", "mode": "rw"}
+        str(Path("/host/project/data") / "cache" / "models"): {
+            "bind": "/cache/models",
+            "mode": "rw",
+        }
     }
     assert cache.worker_environment == {
         "HF_HOME": "/cache/models/huggingface",

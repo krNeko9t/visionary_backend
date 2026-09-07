@@ -6,3 +6,8 @@
 **/*.egg-info
 .venv
 venv
+*.md
+LICENSE.md
+Dockerfile
+.dockerignore
+

@@ -172,6 +172,7 @@ jobs/{job_id}/
 - `5173` 打不开：执行 `docker compose ps`，确认 `task-server` 为 `healthy` 且 `web-demo` 已启动
 - 页面提示任务服务连接失败：检查 `docker compose logs task-server` 和 `http://localhost:8000/healthz`
 - 提示找不到 `visionary-3dgs-worker:local`：执行 `docker compose --profile tools build 3dgs-worker`
+- 改了 LangSplat / 3DGS / GaussianWrapping 的 Python 但行为没变：重新构建对应 worker 镜像，见 `docs/setup-and-start.md`
 - GPU 报错：检查 Docker GPU 支持与显卡驱动
 - 3DGS 上游源码固定在 `docker_workers/GaussianSplatting/source` 子模块；镜像构建时提示源码缺失，执行 `git submodule update --init --recursive`
 - `gaussian-wrapping` 构建失败：确认 BuildKit 已开启

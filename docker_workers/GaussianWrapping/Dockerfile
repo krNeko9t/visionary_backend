@@ -4,9 +4,7 @@
 # Run (GPU):
 #   docker run --gpus all -it --rm -v <data>:/data gaussian-wrapping
 #
-# 开发时只改 Python 可挂载子目录，避免覆盖镜像里已编译的 submodules：
-#   -v <repo>/gaussian_wrapping:/workspace/GaussianWrapping/gaussian_wrapping
-# 若挂载整个仓库到 /workspace/GaussianWrapping，会盖住镜像内 submodules 的 .so，需本机也编好 submodule。
+# 改 gaussian_wrapping/ 下 Python 时 rebuild 即可，只重建最后一层，不必重编 CUDA 扩展。
 
 ARG PYTORCH_IMAGE=pytorch/pytorch:2.4.1-cuda12.4-cudnn9-devel
 FROM ${PYTORCH_IMAGE}

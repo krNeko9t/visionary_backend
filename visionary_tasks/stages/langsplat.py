@@ -7,14 +7,12 @@ from ..container.mount import (
     MountedAsset,
     MountedModelCache,
     resolve_host_job_path,
-    resolve_host_mount_path,
 )
 from ..domain.jobs import Artifact
 from ..jobs.paths import JobPaths
 from ..jobs.storage import append_progress_event, write_worker_result
 from ..settings import Settings
 from ..workers.adapters.docker import build_job_volumes, extend_volumes, run_docker_worker
-from ..workers.adapters.langsplat import build_langsplat_live_code_volumes
 from ..workers.contract import WorkerResult, make_progress_event
 from .inputs import missing_langsplat_inputs
 
@@ -47,16 +45,9 @@ def run(settings: Settings, paths: JobPaths) -> WorkerResult:
     client = docker.from_env()
     try:
         host_job_path = str(resolve_host_job_path(settings, paths.root, client))
-        langsplat_repo_host = (
-            str(resolve_host_mount_path(settings, settings.langsplat_repo_path, client))
-            if settings.langsplat_repo_path is not None
-            else None
-        )
         volumes = build_job_volumes(host_job_path, JOB_MOUNT)
         volumes = extend_volumes(volumes, sam_ckpt.docker_volume(settings, client))
         volumes = extend_volumes(volumes, model_cache.docker_volume(settings, client))
-        if langsplat_repo_host:
-            volumes = extend_volumes(volumes, build_langsplat_live_code_volumes(langsplat_repo_host))
     finally:
         client.close()
 

@@ -44,6 +44,18 @@ docker compose --profile tools build
 docker compose --profile tools build --build-arg TORCH_CUDA_ARCH_LIST=8.6 3dgs-worker
 ```
 
+## 更新 Worker 代码
+
+Worker 运行镜像内的脚本。改 LangSplat / 3DGS / GaussianWrapping 的业务 Python 后，重新构建对应镜像。Dockerfile 把 CUDA 扩展和业务代码分层，只重建最后一层：
+
+```powershell
+docker compose --profile tools build langsplat-worker
+docker compose --profile tools build 3dgs-worker
+docker compose --profile tools build gaussian-wrapping-worker
+```
+
+task-server 的 Python 由 compose 挂载 `./visionary_tasks`，改调度逻辑后重启 `task-server` 即可，不必重建 worker 镜像。
+
 ## 启动后端与前端演示页面
 
 ```powershell
@@ -80,13 +92,12 @@ docker compose logs -f task-server web-demo
 
 创建任务时可通过 `spec.advanced.stage_overrides` 覆盖阶段参数，详见 `docs/yaml-config.md`。
 
-服务级配置位于 `visionary_tasks/configs/server/active.yaml`，包含 `jobs_root`、`ckpts_root`、`langsplat_repo_path`、task-server 容器名及 CORS 等。3DGS 镜像由 `configs/3dgs/default.yaml` 的 `runtime.worker_image` 配置。
+服务级配置位于 `visionary_tasks/configs/server/active.yaml`，包含 `jobs_root`、`ckpts_root`、task-server 容器名及 CORS 等。3DGS 镜像由 `configs/3dgs/default.yaml` 的 `runtime.worker_image` 配置。
 
 默认 compose 已挂载：
 
 - `./data:/data`：job 状态、输入、配置与产物
 - `./ckpts:/workspace/ckpts:ro`：LangSplat/SAM 权重
-- `./docker_workers/LangSplatV2:/workspace/langsplat-src:ro`：LangSplat live code
 - `./visionary_tasks:/workspace/visionary_tasks`：服务代码与配置
 
 `data/cache/models/` 是可删除、可重建的共享模型下载缓存。LangSplat worker 会把它挂载到 `/cache/models`，供预处理和最终导出复用 OpenCLIP 权重；`ckpts/` 保持为只读固定权重目录。
@@ -98,6 +109,7 @@ docker compose logs -f task-server web-demo
 - 找不到 3DGS worker 镜像：执行 `docker compose --profile tools build 3dgs-worker`
 - 3DGS 上游源码位于 `docker_workers/GaussianSplatting/source` 子模块；构建时提示源码缺失，执行 `git submodule update --init --recursive`
 - GPU 相关错误：检查 Docker GPU 支持与显卡驱动
-- LangSplat 报缺少 SAM 权重：确认 `ckpts/sam_vit_h_4b8939.pth` 存在，并重启 `task-server`
+- LangSplat 报缺少 SAM 权重：确认 `ckpts/sam_vit_h_4b8939.pth` 存在
 - LangSplat 下载 OpenCLIP 失败：确认主机可访问 Hugging Face，且 `data/cache/models/` 可写；`HF_TOKEN` 警告只表示未认证限流，不是只读文件系统错误
+- 改了 worker Python 但任务仍用旧行为：重新构建对应镜像，见上文「更新 Worker 代码」
 - 构建 gaussian-wrapping-worker 报 BuildKit 错误：执行 `$env:DOCKER_BUILDKIT=1`

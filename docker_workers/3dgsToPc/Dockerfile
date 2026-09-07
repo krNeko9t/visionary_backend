@@ -26,5 +26,6 @@ RUN pip install --no-cache-dir \
 
 WORKDIR /workspace/3dgsToPc
 
+# 业务 Python（无 CUDA 扩展；改脚本只重建本层）
 COPY gs_to_pc ./gs_to_pc
 COPY scripts ./scripts

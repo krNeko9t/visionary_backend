@@ -13,7 +13,6 @@ def _settings(tmp_path: Path) -> Settings:
         data_root=tmp_path,
         jobs_root=tmp_path / "jobs",
         ckpts_root=tmp_path / "ckpts",
-        langsplat_repo_path=None,
         task_server_container_name="visionary-task-server",
         cors=CorsSettings(
             allow_origins=("http://localhost:5173",),
@@ -89,7 +88,7 @@ def test_gs_stage_runs_as_docker_worker(tmp_path: Path, monkeypatch):
     assert result.logs == "worker logs"
     assert captured["image"] == "visionary-3dgs-worker:local"
     assert captured["volumes"] == {
-        "/host/data/jobs/gs-docker": {"bind": "/job", "mode": "rw"}
+        str(Path("/host/data") / "jobs" / "gs-docker"): {"bind": "/job", "mode": "rw"}
     }
     command = captured["command"]
     assert isinstance(command, list)

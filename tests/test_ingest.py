@@ -22,6 +22,8 @@ def _minimal_ply_header() -> bytes:
         "property float f_dc_2",
         "property float f_rest_0",
         "property float scale_0",
+        "property float scale_1",
+        "property float scale_2",
         "property float rot_0",
         "end_header",
         "0 0 0 1 0 0 0 0 0 0 0",
@@ -29,8 +31,38 @@ def _minimal_ply_header() -> bytes:
     return "\n".join(lines).encode("utf-8")
 
 
+def _ply_header_with_scales(*scale_names: str) -> bytes:
+    properties = [
+        "ply",
+        "format ascii 1.0",
+        "element vertex 1",
+        "property float x",
+        "property float y",
+        "property float z",
+        "property float opacity",
+        "property float f_dc_0",
+        "property float f_dc_1",
+        "property float f_dc_2",
+        "property float f_rest_0",
+        *[f"property float {name}" for name in scale_names],
+        "property float rot_0",
+        "end_header",
+        "0 0 0 1 0 0 0 0 0 0 0",
+    ]
+    return "\n".join(properties).encode("utf-8")
+
+
 def test_validate_native_3dgs_ply_accepts_minimal_header():
     validate_native_3dgs_ply(_minimal_ply_header())
+
+
+def test_validate_native_3dgs_ply_accepts_2dgs_scales():
+    validate_native_3dgs_ply(_ply_header_with_scales("scale_0", "scale_1"))
+
+
+def test_validate_native_3dgs_ply_rejects_single_scale():
+    with pytest.raises(ValueError, match="scale_\\* 字段"):
+        validate_native_3dgs_ply(_ply_header_with_scales("scale_0"))
 
 
 def test_validate_native_3dgs_ply_rejects_missing_fields():

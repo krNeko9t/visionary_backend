@@ -15,7 +15,8 @@ def _minimal_ply_header() -> bytes:
         "property float x\nproperty float y\nproperty float z\n"
         "property float opacity\nproperty float f_dc_0\nproperty float f_dc_1\n"
         "property float f_dc_2\nproperty float f_rest_0\nproperty float scale_0\n"
-        "property float rot_0\nend_header\n0 0 0 1 0 0 0 0 0 0 0\n"
+        "property float scale_1\nproperty float scale_2\nproperty float rot_0\n"
+        "end_header\n0 0 0 1 0 0 0 0 0 0 0\n"
     )
     validate_native_3dgs_ply(content.encode("utf-8"))
     return content.encode("utf-8")

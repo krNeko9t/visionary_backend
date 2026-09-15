@@ -21,7 +21,11 @@ def validate_native_3dgs_ply(content: bytes) -> None:
         raise ValueError(f"PLY 缺少必要字段: {', '.join(missing)}")
     if not any(name.startswith("f_rest_") for name in properties):
         raise ValueError("PLY 缺少 f_rest_* 字段")
-    if not any(name.startswith("scale_") for name in properties):
-        raise ValueError("PLY 缺少 scale_* 字段")
+    scale_count = sum(1 for name in properties if name.startswith("scale_"))
+    if scale_count not in (2, 3):
+        raise ValueError(
+            "PLY 需要 2 个（2DGS）或 3 个（3DGS）scale_* 字段，"
+            f"当前为 {scale_count}"
+        )
     if not any(name.startswith("rot_") for name in properties):
         raise ValueError("PLY 缺少 rot_* 字段")

@@ -86,6 +86,7 @@ services:
     build:
       context: ./docker_workers/3dgsToPc
       dockerfile: Dockerfile
+      target: runtime
     image: 3dgs-to-pc:latest
     profiles:
       - tools

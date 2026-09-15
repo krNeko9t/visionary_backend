@@ -5,6 +5,8 @@ from tqdm import tqdm
 
 from plyfile import PlyData, PlyElement
 
+from .scales import ensure_3d_scales
+
 def computeColorFromLowDegSH(sh):
     """
     Calculates colour from first degree spherical harminics
@@ -66,6 +68,7 @@ def load_ply_data(path, max_sh_degree=3):
     scales = np.zeros((xyz.shape[0], len(scale_names)))
     for idx, attr_name in enumerate(scale_names):
         scales[:, idx] = np.asarray(plydata.elements[0][attr_name])
+    scales = ensure_3d_scales(scales)
 
     rot_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("rot")]
     rot_names = sorted(rot_names, key = lambda x: int(x.split('_')[-1]))

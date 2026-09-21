@@ -35,7 +35,7 @@ class LangSplatModelConfig:
     white_background: bool = False
     feature_level: int = 0
     feature_levels: list[int] = field(default_factory=lambda: [1, 2, 3])
-    data_device: str = "cuda"
+    data_device: str = "cpu"
     eval: bool = False
 
 

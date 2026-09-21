@@ -6,6 +6,7 @@ runtime:
   model_relative: langsplatv2
 
 preprocess:
+  # -1：长边上限 1024（论文 1K）。语言 loss 是 512×H×W，再高会把 24GB 显存顶满。
   resolution: -1
 
 model:
@@ -15,7 +16,8 @@ model:
   resolution: -1
   white_background: false
   feature_levels: [0]
-  data_device: cuda
+  # 语言训练不用 RGB；放 GPU 会白白占掉全部相机的显存。
+  data_device: cpu
   eval: false
 
 optimization:

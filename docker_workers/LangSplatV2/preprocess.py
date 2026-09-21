@@ -9,6 +9,7 @@ from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 import cv2
 
 from utils.mask_processing import crop_masked_region
+from utils.image_scale import scaled_resolution
 
 from dataclasses import dataclass, field
 from typing import Tuple, Type
@@ -374,27 +375,12 @@ if __name__ == '__main__':
     )
 
     img_list = []
-    WARNED = False
     for data_path in data_list:
         image_path = os.path.join(img_folder, data_path)
         image = cv2.imread(image_path)
 
         orig_w, orig_h = image.shape[1], image.shape[0]
-        if args.resolution == -1:
-            if orig_h > 1080:
-                if not WARNED:
-                    print("[ INFO ] Encountered quite large input images (>1080P), rescaling to 1080P.\n "
-                        "If this is not desired, please explicitly specify '--resolution/-r' as 1")
-                    WARNED = True
-                global_down = orig_h / 1080
-            else:
-                global_down = 1
-        else:
-            global_down = orig_w / args.resolution
-            
-        scale = float(global_down)
-        resolution = (int( orig_w  / scale), int(orig_h / scale))
-        
+        resolution = scaled_resolution(orig_w, orig_h, args.resolution)
         image = cv2.resize(image, resolution)
         image = torch.from_numpy(image)
         img_list.append(image)

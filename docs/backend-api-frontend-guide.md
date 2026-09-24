@@ -141,9 +141,9 @@
 
 `GET /api/v1/jobs/{job_id}/artifacts/{artifact_id}/download`
 
-返回文件流。仅普通文件类型的 `downloadable: true` 产物适合直接下载。
+返回文件流。普通文件产物直接下载；`type=directory` 的可下载产物（如 `language_model`）会先打包为 zip 再返回。
 
-`language_model` 当前登记为目录型产物，状态接口会返回路径和 metadata，但下载接口使用文件流响应；调用方不要把它当单个文件直接下载。
+`language_model` 下载后得到 `{job_id}-language_model.zip`，解压后即为 `langsplat_export/chkpnt{N}/` 目录内容。
 
 常见错误响应：
 

@@ -79,7 +79,7 @@ jobs/{job_id}/
 
 - `language_model` → 最终导出目录路径，例如 `langsplat_export/chkpnt10000/`
 
-`language_model` 是目录型 artifact。状态和产物列表接口会返回它的路径、checkpoint、levels、queries 等 metadata；当前下载接口面向普通文件流，调用方不要把该目录当单文件直接下载。
+`language_model` 是目录型 artifact。状态和产物列表接口会返回它的路径、checkpoint、levels、queries 等 metadata；下载接口会将其打包为 zip 后返回。
 
 ## gaussian-wrapping
 
@@ -148,6 +148,7 @@ jobs/{job_id}/
 - `GET /api/v1/jobs/{job_id}/artifacts/mesh/download`
 - `GET /api/v1/jobs/{job_id}/artifacts/mesh_textured/download`
 - `GET /api/v1/jobs/{job_id}/artifacts/mesh_glb/download`
+- `GET /api/v1/jobs/{job_id}/artifacts/language_model/download`（目录产物，返回 zip）
 
 ## native_3dgs_ply 模式
 

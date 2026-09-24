@@ -4,11 +4,12 @@ import json
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from ...domain.input_modes import get_input_mode
 from ...domain.jobs import JobSpec
 from ...domain.pipeline import INPUT_MODE_DEFINITIONS
+from ...services.artifact_packaging import zip_directory
 from ...services.job_service import JobService
 from ...settings import get_settings
 from .schemas import (
@@ -109,7 +110,11 @@ def list_artifacts(job_id: str) -> ArtifactListResponse:
 
 
 @router.get("/jobs/{job_id}/artifacts/{artifact_id}/download")
-def download_artifact(job_id: str, artifact_id: str) -> FileResponse:
+def download_artifact(
+    job_id: str,
+    artifact_id: str,
+    background_tasks: BackgroundTasks,
+) -> Response:
     service = _service()
     state = service.get_job(job_id)
     if state is None:
@@ -126,6 +131,17 @@ def download_artifact(job_id: str, artifact_id: str) -> FileResponse:
         if state.status != "done":
             raise HTTPException(status_code=409, detail="任务尚未完成")
         raise HTTPException(status_code=404, detail="产物文件不存在")
+
+    if artifact.type == "directory" or file_path.is_dir():
+        if not file_path.is_dir():
+            raise HTTPException(status_code=404, detail="产物目录不存在")
+        zip_path = zip_directory(file_path)
+        background_tasks.add_task(zip_path.unlink, missing_ok=True)
+        return FileResponse(
+            zip_path,
+            filename=f"{job_id}-{artifact_id}.zip",
+            media_type="application/zip",
+        )
 
     return FileResponse(file_path, filename=f"{job_id}-{artifact_id}{file_path.suffix}")
 

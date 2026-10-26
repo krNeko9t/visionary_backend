@@ -18,3 +18,11 @@ docker_workers/**/output/
 docker_workers/**/outputs/
 .cursor/rules/
 prune_3dgs.py
+
+AGENTS.md
+.agents
+.claude
+.codebuddy
+.qoder
+docs/research
+.scratch

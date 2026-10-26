@@ -25,6 +25,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 import torch
 from plyfile import PlyData, PlyElement
+from visionary_progress import ProgressReporter
 
 from eval.openclip_encoder import OpenCLIPNetwork
 
@@ -144,7 +145,7 @@ def _write_gaussian_ply_with_extra_from_tensors(
             dtype_extra.append((prop_name, "f4"))
 
     dtype_full = dtype_base + dtype_extra
-    elements = np.empty(p_count, dtype=dtype_full)
+    elements: np.ndarray = np.empty(p_count, dtype=dtype_full)
 
     if len(extra_cols) > 0:
         extras_concat = np.concatenate(extra_cols, axis=1)
@@ -192,20 +193,26 @@ def _write_queries_json(queries: List[str], out_path: Path, device: torch.device
     if len(queries) == 0:
         return
 
+    progress = ProgressReporter.from_env()
+    progress.record(message="加载查询特征编码模型")
     clip_model = OpenCLIPNetwork(device)
+    progress.record(message=f"编码查询特征（{len(queries)} 条）")
     clip_model.set_positives(list(queries))
     embeds = clip_model.pos_embeds.detach().to(torch.float32).cpu().numpy()
 
-    payload = {"queries": []}
+    payload: dict[str, list[dict[str, str | list[float]]]] = {"queries": []}
     for name, vec in zip(queries, embeds):
         payload["queries"].append({"name": str(name), "vector": vec.astype(np.float32).tolist()})
 
+    progress.record(message="写入查询特征 queries.json")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False)
 
 
 def _export_level_checkpoint(*, ckpt_path: Path, level: int, out_root: Path, topk: int) -> None:
+    progress = ProgressReporter.from_env()
+    progress.record(message=f"加载 checkpoint level={level}")
     if not ckpt_path.is_file():
         raise FileNotFoundError(f"找不到 checkpoint 文件：{ckpt_path}")
 
@@ -237,6 +244,7 @@ def _export_level_checkpoint(*, ckpt_path: Path, level: int, out_root: Path, top
             f"当前 checkpoint 的 codebook 有 {codebooks.shape[0]} 个 level；本导出格式要求单 level（64*512）。"
         )
 
+    progress.record(message=f"计算 level={level} 的导出权重")
     weights64 = _compute_weights_64(logits, topk=int(topk), require_single_level=True).cpu().numpy()
     codebook = codebooks[0].cpu().numpy()
 
@@ -245,6 +253,7 @@ def _export_level_checkpoint(*, ckpt_path: Path, level: int, out_root: Path, top
     bin_out = lvl_dir / "codebook_64x512.bin"
 
     extra = {f"weight_{i}": weights64[:, i] for i in range(64)}
+    progress.record(message=f"写入 level={level} 的 PLY")
     _write_gaussian_ply_with_extra_from_tensors(
         xyz=xyz_t,
         features_dc=f_dc_t,
@@ -256,6 +265,7 @@ def _export_level_checkpoint(*, ckpt_path: Path, level: int, out_root: Path, top
         out_path=ply_out,
         text=False,
     )
+    progress.record(message=f"写入 level={level} 的 codebook")
     _write_codebook_bin(codebook, bin_out)
 
     print(f"[OK] level={level}")
@@ -279,6 +289,11 @@ class ExportJob:
 
 
 def export_final_products(job: ExportJob) -> Path:
+    progress = ProgressReporter.from_env()
+    progress.record(
+        event_type="step_started", progress=0.0,
+        completed=0, total=len(job.levels) or None, unit="level", message="开始导出",
+    )
     if job.model_root is not None:
         out_root = job.output_dir / f"chkpnt{int(job.checkpoint)}"
     else:
@@ -293,14 +308,20 @@ def export_final_products(job: ExportJob) -> Path:
     queries_out = out_root / "queries.json"
     _write_queries_json(list(job.queries), queries_out, device=device)
 
-    for level in job.levels:
+    for completed, level in enumerate(job.levels, start=1):
+        progress.record(message=f"定位 checkpoint level={level}")
         if job.model_root is not None:
             ckpt_dir = _resolve_level_model_dir(job.model_root, int(level))
         else:
             ckpt_dir = _resolve_ckpt_dir(str(job.ckpt_root), str(job.ckpt_prefix), level=int(level))
         ckpt_path = ckpt_dir / f"chkpnt{int(job.checkpoint)}.pth"
         _export_level_checkpoint(ckpt_path=ckpt_path, level=int(level), out_root=out_root, topk=job.topk)
+        progress.record(
+            completed=completed, total=len(job.levels), unit="level",
+            message=f"已导出 level={level}",
+        )
 
+    progress.record(event_type="step_completed", progress=1.0, message="导出完成")
     print(f"[DONE] outputs in: {out_root}")
     return out_root
 

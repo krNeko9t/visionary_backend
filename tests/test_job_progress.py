@@ -610,3 +610,325 @@ def test_preprocessing_failures_keep_task_error_semantics(
         assert stage["current_step"]["message"] == "写入图片 a.png 的语言特征"
         assert stage["progress"] == pytest.approx(0.3)
     assert body["progress"] < 100
+
+
+@pytest.fixture
+def export_worker(monkeypatch):
+    """Run the real exporter with CPU tensors and controlled model loading."""
+    import builtins
+    import importlib.util
+    import sys
+    from types import ModuleType, SimpleNamespace
+
+    import numpy as np
+    from plyfile import PlyData
+
+    hooks = SimpleNamespace(observe=lambda operation: None)
+
+    class Array(np.ndarray):
+        def tofile(self, path, *args, **kwargs):
+            hooks.observe("codebook")
+            return super().tofile(path, *args, **kwargs)
+
+    class Tensor(np.ndarray):
+        def detach(self):
+            return self
+
+        def to(self, dtype):
+            return self.astype(dtype)
+
+        def cpu(self):
+            return self
+
+        def numpy(self):
+            return np.asarray(self).view(Array)
+
+        def transpose(self, first, second):
+            return self.swapaxes(first, second)
+
+        def flatten(self, start_dim):
+            return self.reshape(*self.shape[:start_dim], -1)
+
+        def contiguous(self):
+            return self
+
+        def softmax(self, dim):
+            values = np.exp(self - self.max(axis=dim, keepdims=True))
+            return (values / values.sum(axis=dim, keepdims=True)).view(Tensor)
+
+    def tensor(value):
+        return np.asarray(value, dtype=np.float32).view(Tensor)
+
+    def load(path, map_location):
+        hooks.observe("checkpoint")
+        return (
+            (0, tensor([[1, 2, 3]]), tensor([[[0.1, 0.2, 0.3]]]),
+             tensor(np.zeros((1, 3, 3))), tensor([[0, 0, 0]]),
+             tensor([[1, 0, 0, 0]]), tensor([[0.5]]), tensor(np.zeros((1, 64))),
+             tensor(np.ones((1, 64, 512))), None, None, None, None, None),
+            1,
+        )
+
+    class OpenCLIPNetwork:
+        def __init__(self, device):
+            hooks.observe("clip")
+
+        def set_positives(self, queries):
+            hooks.observe("queries")
+            self.pos_embeds = tensor(np.ones((len(queries), 512)))
+
+    torch = ModuleType("torch")
+    torch.Tensor = Tensor
+    torch.float32 = np.float32
+    torch.device = str
+    torch.cuda = SimpleNamespace(is_available=lambda: False)
+    torch.as_tensor = tensor
+    torch.load = load
+    monkeypatch.setitem(sys.modules, "torch", torch)
+    encoder = ModuleType("eval.openclip_encoder")
+    encoder.OpenCLIPNetwork = OpenCLIPNetwork
+    monkeypatch.setitem(sys.modules, "eval.openclip_encoder", encoder)
+    write_ply = PlyData.write
+
+    def write(self, path):
+        hooks.observe("ply")
+        return write_ply(self, path)
+
+    monkeypatch.setattr(PlyData, "write", write)
+    open_file = builtins.open
+
+    def open_output(path, mode="r", *args, **kwargs):
+        if str(path).endswith("queries.json") and mode == "w":
+            hooks.observe("queries_file")
+        return open_file(path, mode, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "open", open_output)
+    path = Path(__file__).resolve().parents[1] / "docker_workers/LangSplatV2/export_lsv2_final_product.py"
+    spec = importlib.util.spec_from_file_location("controlled_export", path)
+    worker = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, spec.name, worker)
+    spec.loader.exec_module(worker)
+    return worker, hooks
+
+
+@pytest.mark.parametrize("levels", [(2,), (3, 1)])
+def test_exported_levels_update_the_existing_job_query(
+    progress_job, export_worker, monkeypatch, levels,
+):
+    import json
+
+    import numpy as np
+    from plyfile import PlyData
+    from visionary_progress import ProgressReporter, read_progress_events, record_progress
+
+    client, paths, _ = progress_job(levels=levels)
+    worker, hooks = export_worker
+    event_file = paths.stage_events_file("langsplat")
+    record_progress(event_file, "langsplat", progress=0.3)
+    for level in levels:
+        ProgressReporter(event_file, "langsplat", {"name": "train", "level": level}, f"训练 level={level}").record(
+            completed=1000, total=1000, unit="iteration",
+        )
+        model = paths.langsplat_model_dir("langsplatv2", level)
+        model.mkdir()
+        (model / "chkpnt1.pth").write_bytes(b"checkpoint")
+    reporter = ProgressReporter(event_file, "langsplat", {"name": "export"}, "导出")
+    reporter.record(event_type="step_started", progress=0.0, message="LangSplat export 开始")
+    for name, value in reporter.environment().items():
+        monkeypatch.setenv(name, value)
+    url = f"/api/v1/jobs/{paths.job_id}"
+    switched = client.get(url).json()
+    step = switched["stages"][-1]["current_step"]
+    assert step["id"] == {"name": "export"}
+    assert step["completed"] is step["total"] is step["unit"] is None
+    assert switched["stages"][-1]["progress"] == pytest.approx(0.8)
+    snapshots = []
+    hooks.observe = lambda operation: snapshots.append((operation, client.get(url).json()))
+    output = worker.export_final_products(worker.ExportJob(
+        output_dir=paths.root / "langsplat_export", checkpoint=1, levels=levels,
+        model_root=paths.root / "langsplatv2", queries=("elephant", "tree"), topk=0,
+    ))
+
+    assert [operation for operation, _ in snapshots] == ["clip", "queries", "queries_file"] + ["checkpoint", "ply", "codebook"] * len(levels)
+    for index, (operation, body) in enumerate(snapshots):
+        stage = body["stages"][-1]
+        current = stage["current_step"]
+        assert current["id"] == {"name": "export"}
+        assert current["total"] == len(levels) and current["unit"] == "level"
+        assert body["status"] == stage["status"] == "running"
+        if operation == "clip":
+            assert current["message"] == "加载查询特征编码模型"
+        elif operation == "queries":
+            assert current["message"] == "编码查询特征（2 条）"
+        elif operation == "queries_file":
+            assert current["message"] == "写入查询特征 queries.json"
+        else:
+            completed = (index - 3) // 3
+            level = levels[completed]
+            expected_message = {
+                "checkpoint": f"加载 checkpoint level={level}",
+                "ply": f"写入 level={level} 的 PLY",
+                "codebook": f"写入 level={level} 的 codebook",
+            }[operation]
+            assert current["message"] == expected_message
+            assert current["completed"] == completed
+            assert stage["progress"] == pytest.approx(0.8 if completed == 0 else 0.9)
+            assert body["progress"] == pytest.approx(96.8421052632 if completed == 0 else 98.4210526316)
+
+    body = client.get(url).json()
+    assert body["status"] == body["stages"][-1]["status"] == "running"
+    assert body["progress"] == 99
+    assert body["stages"][-1]["progress"] == 1
+    assert body["stages"][-1]["current_step"] == {
+        "id": {"name": "export"}, "label": "导出", "progress": 1.0,
+        "completed": len(levels), "total": len(levels), "unit": "level", "message": "导出完成",
+    }
+    events = read_progress_events(event_file)
+    assert events[-1].event_type == "step_completed"
+    export_events = [event for event in events if event.current_step and event.current_step.id == {"name": "export"}]
+    assert all(event.progress is None for event in export_events)
+    queries = json.loads((output / "queries.json").read_text())
+    assert [item["name"] for item in queries["queries"]] == ["elephant", "tree"]
+    assert all(item["vector"] == [1.0] * 512 for item in queries["queries"])
+    for level in levels:
+        folder = output / f"L{level}"
+        ply = PlyData.read(folder / "gaussians_with_weights64.ply")
+        assert ply["vertex"]["x"].tolist() == [1.0]
+        assert ply["vertex"]["weight_0"].tolist() == [1 / 64]
+        np.testing.assert_array_equal(np.fromfile(folder / "codebook_64x512.bin", dtype="<f4"), np.ones(64 * 512))
+
+
+@pytest.mark.parametrize("failure", [None, "clip", "queries", "queries_file", "checkpoint", "ply", "codebook", "missing_output"])
+def test_export_checks_and_failures_keep_task_lifecycle(
+    progress_job, export_worker, monkeypatch, failure,
+):
+    import shutil
+    import sys
+    from unittest.mock import MagicMock
+
+    from visionary_progress import ProgressReporter, read_progress_events
+    from visionary_tasks.services.runner import run_job
+    from visionary_tasks.stages import langsplat, registry
+    from visionary_tasks.workers.contract import WorkerResult
+
+    levels = [3, 1]
+    client, paths, _ = progress_job(levels=levels)
+    worker, hooks = export_worker
+    settings = routes.get_settings()
+    config = materialize_stage_config("langsplat", paths, override={
+        "model": {"feature_levels": levels},
+        "export": {"levels": levels, "checkpoint": 1, "topk": 0, "queries": ["elephant"]},
+    })
+    (paths.input_dir / "a.png").write_bytes(b"image")
+    (paths.colmap_dir / "sparse").mkdir()
+    gs = materialize_stage_config("3dgs", paths)
+    checkpoint = paths.gs_checkpoint(gs.output_relative, gs.output_iteration)
+    checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    checkpoint.write_bytes(b"checkpoint")
+    settings.ckpts_root.mkdir()
+    (settings.ckpts_root / "sam_vit_h_4b8939.pth").write_bytes(b"sam")
+    docker_client = MagicMock()
+    docker_client.containers.get.return_value.attrs = {
+        "Mounts": [
+            {"Destination": str(settings.data_root), "Source": str(settings.data_root)},
+            {"Destination": str(settings.ckpts_root), "Source": str(settings.ckpts_root)},
+        ],
+    }
+    monkeypatch.setattr(langsplat.docker, "from_env", lambda: docker_client)
+    url = f"/api/v1/jobs/{paths.job_id}"
+    snapshots = []
+    operations = []
+    problem = OSError("受控导出失败")
+
+    def observe(operation):
+        operations.append(operation)
+        snapshots.append(client.get(url).json())
+        if operation == failure and (operation in {"clip", "queries", "queries_file"} or operations.count(operation) == 2):
+            raise problem
+
+    hooks.observe = observe
+
+    def controlled_worker(**kwargs):
+        with monkeypatch.context() as context:
+            for name, value in kwargs["environment"].items():
+                context.setenv(name, value)
+            assert kwargs["environment"]["VISIONARY_PROGRESS_FILE"] == "/job/events/langsplat.jsonl"
+            context.setenv("VISIONARY_PROGRESS_FILE", str(paths.stage_events_file("langsplat")))
+            reporter = ProgressReporter.from_env()
+            if kwargs["label"] == "langsplat preprocess":
+                return
+            if kwargs["label"].startswith("langsplat train"):
+                level = reporter.step_id["level"]
+                reporter.record(completed=1000, total=1000, unit="iteration")
+                model = paths.langsplat_model_dir(config.runtime.model_relative, level)
+                model.mkdir()
+                (model / "chkpnt1.pth").write_bytes(b"checkpoint")
+                return
+            assert reporter.step_id == {"name": "export"} and reporter.label == "导出"
+            snapshots.append(client.get(url).json())
+            command = [str(arg).replace("/job/", f"{paths.root}/") for arg in kwargs["command"][1:]]
+            context.setattr(sys, "argv", command)
+            worker.main()
+            snapshots.append(client.get(url).json())
+            assert snapshots[-1]["status"] == snapshots[-1]["stages"][-1]["status"] == "running"
+            assert snapshots[-1]["progress"] == 99
+            if failure == "missing_output":
+                shutil.rmtree(paths.langsplat_export_root(config.export.output_relative, 1))
+
+    monkeypatch.setattr(langsplat, "run_docker_worker", controlled_worker)
+    for stage_id in ("colmap", "3dgs"):
+        monkeypatch.setitem(
+            registry.STAGE_RUNNERS, stage_id,
+            lambda settings, paths, stage_id=stage_id: WorkerResult(stage_id=stage_id, status="done"),
+        )
+    run_job(settings, paths)
+    body = client.get(url).json()
+    stage = body["stages"][-1]
+    assert snapshots[0]["stages"][-1]["current_step"]["unit"] is None
+    assert snapshots[0]["stages"][-1]["progress"] == pytest.approx(0.8)
+    events = read_progress_events(paths.stage_events_file("langsplat"))
+    export_events = [event for event in events if event.current_step.id == {"name": "export"}]
+    if failure:
+        assert body["status"] == stage["status"] == "error"
+        assert body["progress"] < 100
+        assert not body["artifacts"]
+        assert not any(event.event_type == "completed" for event in export_events)
+        if failure == "missing_output":
+            assert "未生成最终产物目录或目录为空" in body["error"]
+            assert stage["progress"] == 1
+            assert export_events[-1].event_type == "step_completed"
+        else:
+            assert body["error"] == stage["error"] == str(problem)
+            assert not any(event.event_type == "step_completed" for event in export_events)
+            expected_count = 0 if failure in {"clip", "queries", "queries_file"} else 1
+            assert stage["current_step"]["completed"] == expected_count
+            assert stage["progress"] == pytest.approx(0.8 if expected_count == 0 else 0.9)
+            assert stage["current_step"]["message"] == snapshots[-1]["stages"][-1]["current_step"]["message"]
+    else:
+        assert body["status"] == stage["status"] == "done"
+        assert body["progress"] == 100 and stage["progress"] == 1
+        assert stage["current_step"]["completed"] == stage["current_step"]["total"] == 2
+        assert export_events[-1].event_type == "completed"
+        assert body["artifacts"][0]["metadata"]["levels"] == levels
+        artifact_url = f"{url}/artifacts/language_model"
+        assert client.get(f"{artifact_url}/download").status_code == 200
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_standalone_export_keeps_paths_and_skips_empty_queries(tmp_path, export_worker, monkeypatch, legacy):
+    worker, hooks = export_worker
+    monkeypatch.delenv("VISIONARY_PROGRESS_FILE", raising=False)
+    model_root = tmp_path / "model"
+    model = tmp_path / "model_2"
+    model.mkdir()
+    (model / "chkpnt1.pth").write_bytes(b"checkpoint")
+    operations = []
+    hooks.observe = operations.append
+    inputs = {"ckpt_root": tmp_path, "ckpt_prefix": "model", "scene_id": "scene"} if legacy else {"model_root": model_root}
+    output = worker.export_final_products(worker.ExportJob(
+        output_dir=tmp_path / "out", checkpoint=1, levels=(2,), topk=0, **inputs,
+    ))
+    assert operations == ["checkpoint", "ply", "codebook"]
+    assert output == tmp_path / "out" / ("scene/chkpnt1" if legacy else "chkpnt1")
+    assert sorted(path.name for path in (output / "L2").iterdir()) == ["codebook_64x512.bin", "gaussians_with_weights64.ply"]
+    assert not (output / "queries.json").exists()

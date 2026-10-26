@@ -56,7 +56,7 @@ docker compose --profile tools build gaussian-wrapping-worker
 
 task-server 的 Python 由 compose 挂载 `./visionary_tasks` 和 `./visionary_progress`，改调度逻辑后重启 `task-server` 即可，不必重建 worker 镜像。
 
-`visionary_progress` 是后端和 LangSplat 镜像共用的轻量进度包，使用标准库。LangSplat 镜像的构建上下文为仓库根目录，Compose 已配置该路径；手动构建使用 `docker build -f docker_workers/LangSplatV2/Dockerfile -t langsplatv2:pt241 .`。修改共享包后也需重建 LangSplat 镜像。独立运行预处理或训练脚本时，先从仓库根目录执行 `pip install .` 安装共享包。
+`visionary_progress` 是后端和 LangSplat 镜像共用的轻量进度包，使用标准库。LangSplat 镜像的构建上下文为仓库根目录，Compose 已配置该路径；手动构建使用 `docker build -f docker_workers/LangSplatV2/Dockerfile -t langsplatv2:pt241 .`。修改共享包后也需重建 LangSplat 镜像。独立运行预处理、训练或导出脚本时，先从仓库根目录执行 `pip install .` 安装共享包。
 
 ## 启动后端与前端演示页面
 

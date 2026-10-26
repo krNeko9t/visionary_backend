@@ -4,7 +4,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from ..domain.jobs import JobState, ProgressEvent
+from visionary_progress import append_progress_event, read_progress_events
+
+from ..domain.jobs import JobState
 from ..workers.contract import WorkerResult
 
 
@@ -39,23 +41,6 @@ def read_worker_result(path: Path) -> WorkerResult | None:
     if data is None:
         return None
     return WorkerResult.from_dict(data)
-
-
-def append_progress_event(path: Path, event: ProgressEvent) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event.to_dict(), ensure_ascii=False) + "\n")
-
-
-def read_progress_events(path: Path) -> list[ProgressEvent]:
-    if not path.exists():
-        return []
-    events: list[ProgressEvent] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        events.append(ProgressEvent.from_dict(json.loads(line)))
-    return events
 
 
 def save_upload_files(files: list[tuple[str, bytes]], input_dir: Path) -> int:

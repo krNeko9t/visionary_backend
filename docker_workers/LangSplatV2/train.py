@@ -18,6 +18,7 @@ from gaussian_renderer import render, network_gui
 import sys
 from scene import Scene, GaussianModel
 from utils.general_utils import safe_state
+from visionary_progress import ProgressReporter
 import uuid
 from tqdm import tqdm
 from utils.image_utils import psnr
@@ -34,6 +35,8 @@ import matplotlib.pyplot as plt
 
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from, args):
+    progress = ProgressReporter.from_env()
+    progress.record(event_type="step_started", message=f"加载场景 level={dataset.feature_level}")
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     gaussians = GaussianModel(dataset.sh_degree)
@@ -44,6 +47,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         if not checkpoint:
             raise ValueError("checkpoint missing!!!!!")
     if checkpoint:
+        progress.record(message="加载训练检查点")
         (model_params, first_iter) = torch.load(checkpoint)
         if len(model_params) == 12 and opt.include_feature:
             first_iter = 0
@@ -51,6 +55,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     
     # Initialize language feature codebooks
     if opt.include_feature and first_iter == 0:
+        progress.record(message="加载语言特征并初始化码本")
         device = torch.device("cuda")
         features = load_2d_language_feature(dataset.lf_path, device)
         rvq = ResidualVectorQuantizationWithClustering(opt.vq_layer_num, opt.codebook_size, features.shape[1], device).to(device)
@@ -73,6 +78,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     loss_record = []
     iter_record = []
     smooth_loss = None
+    progress_interval = max(1, args.progress_interval)
     for iteration in range(first_iter, opt.iterations + 1):        
         if network_gui.conn == None:
             network_gui.try_connect()
@@ -179,6 +185,13 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 print("\n[ITER {}] Saving Checkpoint".format(iteration))
                 torch.save((gaussians.capture(opt.include_feature), iteration), scene.model_path + "/chkpnt" + str(iteration) + ".pth")
 
+            if iteration == first_iter or iteration % progress_interval == 0 or iteration == opt.iterations:
+                progress.record(
+                    completed=iteration, total=opt.iterations, unit="iteration",
+                    message=f"LangSplat 训练中 level={dataset.feature_level} iteration={iteration}/{opt.iterations}",
+                )
+    progress.record(event_type="step_completed", progress=1.0, message=f"LangSplat 训练完成 level={dataset.feature_level}")
+
 def prepare_output_and_logger(args):    
     if not args.model_path:
         if os.getenv('OAR_JOB_ID'):
@@ -259,6 +272,7 @@ if __name__ == "__main__":
     parser.add_argument('--normalize', action='store_true', default=False)
     parser.add_argument('--accum_iter', type=int, default=1)
     parser.add_argument('--topk', type=int, default=1)
+    parser.add_argument('--progress_interval', type=int, default=100)
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
     print(args)

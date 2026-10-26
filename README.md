@@ -116,6 +116,22 @@ jobs/{job_id}/
 4. `GET /api/v1/jobs/{job_id}/artifacts`：列出产物
 5. `GET /api/v1/jobs/{job_id}/artifacts/{artifact_id}/download`：下载产物
 
+任务查询的 `progress` 为 0～100，`stages[].progress` 为 0～1。阶段可附带 `current_step`：
+
+```json
+{
+  "id": {"name": "train", "level": 2},
+  "label": "训练 level=2",
+  "progress": 0.5,
+  "completed": 500,
+  "total": 1000,
+  "unit": "iteration",
+  "message": "训练中"
+}
+```
+
+工作详情和数值字段均可缺省；切换工作时以新对象为准。示例页面每两秒轮询原任务接口，直接展示后端汇总结果。阶段和任务的成功仍由执行结果及产物检查确定。
+
 创建任务时 `spec` 示例：
 
 ```json

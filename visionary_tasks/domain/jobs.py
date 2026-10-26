@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Literal
 
+from visionary_progress import CurrentStep, ProgressEvent, StepDefinition
+
 JobStatus = Literal["queued", "running", "done", "error", "cancelled"]
 StageStatus = Literal["pending", "running", "done", "error", "skipped", "cancelled"]
 
@@ -77,40 +79,6 @@ class Artifact:
 
 
 @dataclass
-class ProgressEvent:
-    stage_id: str
-    event_type: str
-    progress: float | None = None
-    iteration: int | None = None
-    total_iterations: int | None = None
-    message: str | None = None
-    timestamp: str = ""
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "stage_id": self.stage_id,
-            "event_type": self.event_type,
-            "progress": self.progress,
-            "iteration": self.iteration,
-            "total_iterations": self.total_iterations,
-            "message": self.message,
-            "timestamp": self.timestamp,
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> ProgressEvent:
-        return cls(
-            stage_id=str(data["stage_id"]),
-            event_type=str(data["event_type"]),
-            progress=data.get("progress"),
-            iteration=data.get("iteration"),
-            total_iterations=data.get("total_iterations"),
-            message=data.get("message"),
-            timestamp=str(data.get("timestamp", "")),
-        )
-
-
-@dataclass
 class StageState:
     stage_id: str
     status: StageStatus
@@ -118,6 +86,8 @@ class StageState:
     ended_at: str | None = None
     progress: float = 0.0
     error: str | None = None
+    current_step: CurrentStep | None = None
+    progress_steps: list[StepDefinition] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -127,6 +97,8 @@ class StageState:
             "ended_at": self.ended_at,
             "progress": self.progress,
             "error": self.error,
+            "current_step": self.current_step.to_dict() if self.current_step else None,
+            "progress_steps": [step.to_dict() for step in self.progress_steps],
         }
 
     @classmethod
@@ -138,6 +110,8 @@ class StageState:
             ended_at=data.get("ended_at"),
             progress=float(data.get("progress", 0.0)),
             error=data.get("error"),
+            current_step=CurrentStep.from_dict(data["current_step"]) if data.get("current_step") else None,
+            progress_steps=[StepDefinition(**item) for item in data.get("progress_steps") or []],
         )
 
     @classmethod

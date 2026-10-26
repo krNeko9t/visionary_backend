@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from visionary_progress import StageProgress
+
 from ..domain.jobs import JobState, JobStatus, ProgressEvent, StageState
 from ..domain.pipeline import STAGE_DEFINITIONS
 from ..jobs.paths import JobPaths
 from ..jobs.storage import read_progress_events
+from ..stages.progress import configured_progress_steps
 
 
 def derive_job_status(state: JobState) -> JobStatus:
@@ -21,20 +24,24 @@ def derive_job_status(state: JobState) -> JobStatus:
 
 
 def compute_stage_progress(stage: StageState, events: list[ProgressEvent]) -> float:
-    stage_events = [event for event in events if event.stage_id == stage.stage_id]
-    progress_values = [
-        event.progress for event in stage_events if event.progress is not None
-    ]
-    if progress_values:
-        return max(0.0, min(1.0, progress_values[-1]))
+    view = StageProgress(stage.progress_steps)
+    for event in events:
+        if event.stage_id == stage.stage_id:
+            view.consume(event)
+    stage.current_step = view.current_step or stage.current_step
     if stage.status == "done":
         return 1.0
-    if stage.status == "running":
-        return 0.0
-    return 0.0
+    return view.progress if view.progress is not None else stage.progress
 
 
 def compute_job_progress(state: JobState, paths: JobPaths) -> float:
+    # Populate all stage details from the same read used by the total, even at terminal states.
+    for stage in state.stages:
+        if not stage.progress_steps:
+            stage.progress_steps = configured_progress_steps(stage.stage_id, paths)
+        events = read_progress_events(paths.stage_events_file(stage.stage_id))
+        stage.progress = compute_stage_progress(stage, events)
+
     if not state.stages:
         return 0.0
 
@@ -48,13 +55,21 @@ def compute_job_progress(state: JobState, paths: JobPaths) -> float:
     total = 0.0
     for stage in state.stages:
         weight = weights.get(stage.stage_id, 0.0)
-        events = read_progress_events(paths.stage_events_file(stage.stage_id))
-        stage_progress = compute_stage_progress(stage, events)
-        total += weight * stage_progress * 100.0
+        total += weight * stage.progress * 100.0
 
     if status == "error":
         return min(99.0, total)
     return min(99.0, total)
+
+
+def project_stage_events(stage: StageState, paths: JobPaths) -> list[ProgressEvent]:
+    steps = stage.progress_steps or configured_progress_steps(stage.stage_id, paths)
+    view = StageProgress(steps)
+    return [
+        view.consume(event)
+        for event in read_progress_events(paths.stage_events_file(stage.stage_id))
+        if event.stage_id == stage.stage_id
+    ]
 
 
 def _normalized_weights(stage_ids: list[str]) -> dict[str, float]:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -39,13 +39,24 @@ class ArtifactItem(BaseModel):
         return cls(**artifact.to_dict())
 
 
+class CurrentStepItem(BaseModel):
+    id: dict[str, str | int]
+    label: str | None = None
+    progress: float | None = Field(default=None, ge=0.0, le=1.0)
+    completed: float | None = Field(default=None, ge=0.0)
+    total: float | None = Field(default=None, gt=0.0)
+    unit: str | None = None
+    message: str | None = None
+
+
 class StageStatusItem(BaseModel):
     stage_id: str
     status: StageStatus
     started_at: datetime | None = None
     ended_at: datetime | None = None
-    progress: float = 0.0
+    progress: float = Field(default=0.0, ge=0.0, le=1.0)
     error: str | None = None
+    current_step: CurrentStepItem | None = None
 
     @classmethod
     def from_domain(cls, stage: StageState) -> StageStatusItem:
@@ -56,6 +67,7 @@ class StageStatusItem(BaseModel):
             ended_at=datetime.fromisoformat(stage.ended_at) if stage.ended_at else None,
             progress=stage.progress,
             error=stage.error,
+            current_step=CurrentStepItem(**stage.current_step.to_dict()) if stage.current_step else None,
         )
 
 
@@ -112,6 +124,7 @@ class ProgressEventItem(BaseModel):
     total_iterations: int | None = None
     message: str | None = None
     timestamp: datetime
+    current_step: CurrentStepItem | None = None
 
     @classmethod
     def from_domain(cls, event: ProgressEvent) -> ProgressEventItem:
@@ -122,7 +135,8 @@ class ProgressEventItem(BaseModel):
             iteration=event.iteration,
             total_iterations=event.total_iterations,
             message=event.message,
-            timestamp=datetime.fromisoformat(event.timestamp) if event.timestamp else datetime.now(),
+            timestamp=datetime.fromisoformat(event.timestamp) if event.timestamp else datetime.fromtimestamp(0, timezone.utc),
+            current_step=CurrentStepItem(**event.current_step.to_dict()) if event.current_step else None,
         )
 
 

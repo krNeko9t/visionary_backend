@@ -16,11 +16,11 @@ from ..domain.mesh_formats import SUPPORTED_MESH_FORMATS
 from ..domain.jobs import JobSpec, JobState, ProgressEvent, now_iso
 from ..domain.pipeline import INPUT_MODE_DEFINITIONS, OUTPUT_DEFINITIONS, STAGE_DEFINITIONS
 from ..jobs.paths import JobPaths
-from ..jobs.storage import read_job_state, read_progress_events, write_job_state
+from ..jobs.storage import read_job_state, write_job_state
 from ..settings import Settings
 from .ingest import ingest_job_files
 from .planner import plan_pipeline
-from .progress import compute_job_progress, derive_current_stage, derive_error, derive_job_status
+from .progress import compute_job_progress, derive_current_stage, derive_error, derive_job_status, project_stage_events
 from .runner import build_initial_stages, run_job
 
 
@@ -100,8 +100,8 @@ class JobService:
         if state is None:
             return []
         events: list[ProgressEvent] = []
-        for stage_id in state.planned_stages:
-            events.extend(read_progress_events(paths.stage_events_file(stage_id)))
+        for stage in state.stages:
+            events.extend(project_stage_events(stage, paths))
         events.sort(key=lambda event: event.timestamp)
         return events
 

@@ -4,7 +4,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-from ..domain.jobs import Artifact, ProgressEvent, now_iso
+from visionary_progress import make_progress_event
+
+from ..domain.jobs import Artifact
 
 WorkerStatus = Literal["done", "error"]
 
@@ -47,23 +49,3 @@ class WorkerResult:
             metrics=dict(data.get("metrics") or {}),
             logs=data.get("logs"),
         )
-
-
-def make_progress_event(
-    stage_id: str,
-    *,
-    event_type: str = "progress",
-    progress: float | None = None,
-    iteration: int | None = None,
-    total_iterations: int | None = None,
-    message: str | None = None,
-) -> ProgressEvent:
-    return ProgressEvent(
-        stage_id=stage_id,
-        event_type=event_type,
-        progress=progress,
-        iteration=iteration,
-        total_iterations=total_iterations,
-        message=message,
-        timestamp=now_iso(),
-    )

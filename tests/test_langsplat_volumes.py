@@ -1,8 +1,16 @@
+import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+from visionary_progress import ProgressReporter
+
+from visionary_tasks.api.v1.schemas import JobStatusResponse
 from visionary_tasks.config.loader import materialize_stage_config
+from visionary_tasks.domain.jobs import JobSpec, JobState, StageState
 from visionary_tasks.jobs.paths import JobPaths
+from visionary_tasks.jobs.storage import write_job_state
+from visionary_tasks.services.job_service import JobService
 from visionary_tasks.settings import CorsSettings, Settings
 from visionary_tasks.stages import langsplat
 
@@ -22,7 +30,11 @@ def _settings(tmp_path: Path) -> Settings:
     )
 
 
-def test_langsplat_stage_shares_writable_model_cache(tmp_path: Path, monkeypatch):
+@pytest.mark.parametrize("feature_levels", [[0], [3, 1]])
+@pytest.mark.parametrize("missing_output", [None, "model", "export"])
+def test_langsplat_stage_shares_writable_model_cache(
+    tmp_path: Path, monkeypatch, feature_levels: list[int], missing_output
+):
     settings = _settings(tmp_path)
     paths = JobPaths(job_id="langsplat-cache", root=settings.jobs_root / "langsplat-cache")
     paths.ensure_layout()
@@ -48,11 +60,22 @@ def test_langsplat_stage_shares_writable_model_cache(tmp_path: Path, monkeypatch
         "langsplat",
         paths,
         override={
-            "model": {"feature_levels": [0]},
+            "model": {"feature_levels": feature_levels},
             "training": {"checkpoint_iterations": [1]},
-            "export": {"checkpoint": 1, "levels": [0]},
+            "export": {"checkpoint": 1, "levels": feature_levels},
         },
     )
+    state = JobState(
+        job_id=paths.job_id, spec=JobSpec(outputs=["language_model"]), status="running",
+        stages=[StageState("colmap", "done"), StageState("3dgs", "done"), StageState("langsplat", "running")],
+        artifacts=[], created_at="2026-01-01T00:00:00+00:00", updated_at="2026-01-01T00:00:00+00:00",
+        planned_stages=["colmap", "3dgs", "langsplat"],
+    )
+    write_job_state(paths.job_state_file, state)
+    service = JobService(settings)
+
+    def query():
+        return JobStatusResponse.from_state(service.get_job(paths.job_id))
 
     docker_client = MagicMock()
     docker_client.containers.get.return_value = MagicMock(
@@ -69,15 +92,35 @@ def test_langsplat_stage_shares_writable_model_cache(tmp_path: Path, monkeypatch
     monkeypatch.setattr(langsplat.docker, "from_env", lambda: docker_client)
 
     calls: list[dict[str, object]] = []
+    observed_starts = []
+    observed_iterations = []
 
     def fake_run_docker_worker(**kwargs):
         calls.append(kwargs)
         label = str(kwargs["label"])
+        initial = query().stages[-1]
+        observed_starts.append(initial)
+        with monkeypatch.context() as environment:
+            for key, value in kwargs["environment"].items():
+                environment.setenv(key, value)
+            environment.setenv("VISIONARY_PROGRESS_FILE", str(paths.stage_events_file("langsplat")))
+            reporter = ProgressReporter.from_env()
+        assert initial.current_step.id == reporter.step_id
         if label.startswith("langsplat train"):
-            model_dir = paths.langsplat_model_dir(config.runtime.model_relative, 0)
+            feature_level = int(label.rsplit("L", 1)[1])
+            reporter.record(event_type="step_started", message="加载场景与训练检查点")
+            for iteration in (250, 500, 1000):
+                reporter.record(completed=iteration, total=1000, unit="iteration", message="训练中")
+                observed_iterations.append(query())
+            reporter.record(event_type="step_completed", progress=1.0, message="训练完成")
+            if missing_output == "model":
+                return
+            model_dir = paths.langsplat_model_dir(config.runtime.model_relative, feature_level)
             model_dir.mkdir(parents=True, exist_ok=True)
             (model_dir / "chkpnt1.pth").write_bytes(b"model")
         elif label == "langsplat export":
+            if missing_output == "export":
+                return
             export_root = paths.langsplat_export_root(config.export.output_relative, 1)
             export_root.mkdir(parents=True, exist_ok=True)
             (export_root / "queries.json").write_text("{}", encoding="utf-8")
@@ -86,8 +129,38 @@ def test_langsplat_stage_shares_writable_model_cache(tmp_path: Path, monkeypatch
 
     result = langsplat.run(settings, paths)
 
+    if missing_output:
+        assert result.status == "error"
+        assert "目录为空" in result.error
+        assert query().status == "running"  # Only the runner may finalize the stage.
+        return
     assert result.status == "done"
-    assert len(calls) == 3
+    assert query().stages[-1].progress == 1.0
+    assert query().status == "running"
+    assert observed_starts[0].current_step.id == {"name": "preprocess"}
+    assert observed_starts[1].progress == pytest.approx(0.3)
+    assert observed_starts[-1].progress == pytest.approx(0.8)
+    assert observed_starts[-1].current_step.id == {"name": "export"}
+    for initial in observed_starts:
+        assert initial.current_step.completed is None
+        assert initial.current_step.total is None
+        assert initial.current_step.unit is None
+    assert [body.stages[-1].current_step.completed for body in observed_iterations] == [250, 500, 1000] * len(feature_levels)
+    assert all(a.progress <= b.progress for a, b in zip(observed_iterations, observed_iterations[1:]))
+    if len(feature_levels) == 1:
+        assert observed_iterations[1].stages[-1].progress == pytest.approx(0.55)
+        assert observed_iterations[1].progress == pytest.approx(92.8947368421)
+    assert len(calls) == len(feature_levels) + 2
+    train_calls = [call for call in calls if str(call["label"]).startswith("langsplat train")]
+    for index, call in enumerate(train_calls):
+        command = call["command"]
+        assert isinstance(command, list)
+        assert "--progress_offset" not in command and "--progress_span" not in command
+        environment = call["environment"]
+        assert environment["VISIONARY_PROGRESS_FILE"] == "/job/events/langsplat.jsonl"
+        assert json.loads(environment["VISIONARY_PROGRESS_STEP"]) == {
+            "name": "train", "level": feature_levels[index],
+        }
     for call in calls:
         assert call["volumes"][str(Path("/host/data") / "cache" / "models")] == {
             "bind": "/cache/models",
@@ -97,7 +170,7 @@ def test_langsplat_stage_shares_writable_model_cache(tmp_path: Path, monkeypatch
             "bind": settings.ckpts_root.as_posix(),
             "mode": "ro",
         }
-        assert call["environment"] == {
+        assert {key: call["environment"][key] for key in ("HF_HOME", "HF_HUB_CACHE", "TORCH_HOME")} == {
             "HF_HOME": "/cache/models/huggingface",
             "HF_HUB_CACHE": "/cache/models/huggingface/hub",
             "TORCH_HOME": "/cache/models/torch",

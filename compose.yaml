@@ -22,6 +22,7 @@ services:
       - ./ckpts:/workspace/ckpts:ro
       - /var/run/docker.sock:/var/run/docker.sock
       - ./visionary_tasks:/workspace/visionary_tasks
+      - ./visionary_progress:/workspace/visionary_progress
       # 生产环境：取消注释下一行，用 production.yaml 覆盖 active.yaml
       # - ./visionary_tasks/configs/server/production.yaml:/workspace/visionary_tasks/configs/server/active.yaml:ro
   web-demo:
@@ -59,8 +60,8 @@ services:
 
   langsplat-worker:
     build:
-      context: ./docker_workers/LangSplatV2
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: docker_workers/LangSplatV2/Dockerfile
     image: langsplatv2:pt241
     profiles:
       - tools

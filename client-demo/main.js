@@ -332,24 +332,49 @@ async function createJob() {
 }
 
 function renderStageList(stages) {
-  if (!stages?.length) {
-    stageList.innerHTML = "";
-    return;
-  }
-  stageList.innerHTML = stages.map((stage) => {
-    const pct = stage.progress > 0
-      ? Math.round(stage.progress <= 1 ? stage.progress * 100 : stage.progress)
-      : 0;
-    const progressText = stage.status === "running" || stage.status === "done"
+  stageList.replaceChildren();
+  for (const stage of stages || []) {
+    const row = document.createElement("li");
+    const heading = document.createElement("div");
+    heading.className = "stage-heading";
+    const name = document.createElement("span");
+    name.textContent = stage.stage_id;
+    const status = document.createElement("span");
+    status.className = `status-pill ${stage.status}`;
+    const pct = Math.round((stage.progress ?? 0) * 100);
+    const progressText = stage.progress > 0 || stage.status === "running" || stage.status === "done"
       ? ` · ${pct}%`
       : "";
-    return `
-      <li>
-        <span>${stage.stage_id}</span>
-        <span class="status-pill ${stage.status}">${stage.status}${progressText}</span>
-      </li>
-    `;
-  }).join("");
+    status.textContent = `${stage.status}${progressText}`;
+    heading.append(name, status);
+    row.appendChild(heading);
+
+    const step = stage.current_step;
+    if (step) {
+      const details = document.createElement("div");
+      details.className = "step-details";
+      const label = document.createElement("div");
+      const fraction = step.progress == null ? "" : ` · ${Math.round(step.progress * 100)}%`;
+      label.textContent = `${step.label || JSON.stringify(step.id)}${fraction}`;
+      details.appendChild(label);
+      if (step.completed != null || step.total != null) {
+        const counts = document.createElement("div");
+        counts.className = "hint";
+        const completed = step.completed == null ? "" : String(step.completed);
+        const total = step.total == null ? "" : `${completed ? " / " : "总计 "}${step.total}`;
+        counts.textContent = `${completed}${total}${step.unit ? ` ${step.unit}` : ""}`;
+        details.appendChild(counts);
+      }
+      if (step.message) {
+        const message = document.createElement("div");
+        message.className = "hint";
+        message.textContent = step.message;
+        details.appendChild(message);
+      }
+      row.appendChild(details);
+    }
+    stageList.appendChild(row);
+  }
 }
 
 function renderDownloads(artifacts) {

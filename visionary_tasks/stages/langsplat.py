@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import docker
+from visionary_progress import ProgressReporter
 
 from ..config.loader import load_gs_job_config, load_langsplat_job_config
 from ..container.mount import (
@@ -10,11 +11,12 @@ from ..container.mount import (
 )
 from ..domain.jobs import Artifact
 from ..jobs.paths import JobPaths
-from ..jobs.storage import append_progress_event, write_worker_result
+from ..jobs.storage import write_worker_result
 from ..settings import Settings
 from ..workers.adapters.docker import build_job_volumes, extend_volumes, run_docker_worker
-from ..workers.contract import WorkerResult, make_progress_event
+from ..workers.contract import WorkerResult
 from .inputs import missing_langsplat_inputs
+from .progress import langsplat_progress_steps
 
 STAGE_ID = "langsplat"
 JOB_MOUNT = "/job"
@@ -29,15 +31,20 @@ def run(settings: Settings, paths: JobPaths) -> WorkerResult:
     stage_dir.mkdir(parents=True, exist_ok=True)
     config = load_langsplat_job_config(settings, paths)
     runtime = config.runtime
-    feature_levels = config.training_feature_levels()
+    steps = langsplat_progress_steps(config)
     export_checkpoint = config.export_checkpoint()
     sam_ckpt = MountedAsset.sam_checkpoint(settings)
     model_cache = MountedModelCache.from_settings(settings)
 
-    append_progress_event(
-        paths.stage_events_file(STAGE_ID),
-        make_progress_event(STAGE_ID, event_type="started", message="LangSplat 开始"),
-    )
+    progress_file = paths.stage_events_file(STAGE_ID)
+    container_progress_file = f"{JOB_MOUNT}/{progress_file.relative_to(paths.root).as_posix()}"
+    preprocess_progress = ProgressReporter(progress_file, STAGE_ID, steps[0].id, steps[0].label)
+    preprocess_progress.record(event_type="started", progress=0.0, message="LangSplat preprocess 开始")
+
+    def worker_environment(reporter: ProgressReporter) -> dict[str, str]:
+        environment = {**model_cache.worker_environment, **reporter.environment()}
+        environment["VISIONARY_PROGRESS_FILE"] = container_progress_file
+        return environment
 
     if sam_error := sam_ckpt.missing_error():
         return WorkerResult(stage_id=STAGE_ID, status="error", error=sam_error)
@@ -59,20 +66,19 @@ def run(settings: Settings, paths: JobPaths) -> WorkerResult:
         image=runtime.worker_image,
         command=preprocess_cmd,
         volumes=volumes,
-        environment=model_cache.worker_environment,
+        environment=worker_environment(preprocess_progress),
         label="langsplat preprocess",
     )
-    append_progress_event(
-        paths.stage_events_file(STAGE_ID),
-        make_progress_event(STAGE_ID, event_type="progress", progress=0.3, message="LangSplat preprocess 完成"),
-    )
+    preprocess_progress.record(event_type="step_completed", progress=1.0, message="LangSplat preprocess 完成")
 
     gs_config = load_gs_job_config(settings, paths)
     checkpoint = paths.gs_checkpoint(gs_config.output_relative, gs_config.output_iteration)
     model_root = f"{JOB_MOUNT}/{runtime.model_relative}"
     gs_checkpoint_path = f"{JOB_MOUNT}/{checkpoint.relative_to(paths.root).as_posix()}"
-
-    for index, feature_level in enumerate(feature_levels):
+    for step in steps[1:-1]:
+        feature_level = int(step.id["level"])
+        training_progress = ProgressReporter(progress_file, STAGE_ID, step.id, step.label)
+        training_progress.record(event_type="step_started", message=f"启动训练 level={feature_level}")
         train_cmd = config.to_train_command(
             source_path=f"{JOB_MOUNT}/colmap",
             model_path=model_root,
@@ -83,7 +89,7 @@ def run(settings: Settings, paths: JobPaths) -> WorkerResult:
             image=runtime.worker_image,
             command=train_cmd,
             volumes=volumes,
-            environment=model_cache.worker_environment,
+            environment=worker_environment(training_progress),
             label=f"langsplat train L{feature_level}",
         )
         model_dir = paths.langsplat_model_dir(runtime.model_relative, feature_level)
@@ -93,17 +99,10 @@ def run(settings: Settings, paths: JobPaths) -> WorkerResult:
                 status="error",
                 error=f"langsplat 未生成模型目录或目录为空: {model_dir.relative_to(paths.root)}",
             )
-        progress = 0.3 + 0.5 * (index + 1) / len(feature_levels)
-        append_progress_event(
-            paths.stage_events_file(STAGE_ID),
-            make_progress_event(
-                STAGE_ID,
-                event_type="progress",
-                progress=progress,
-                message=f"LangSplat 训练完成 level={feature_level}",
-            ),
-        )
+        training_progress.record(event_type="step_completed", progress=1.0, message=f"LangSplat 训练完成 level={feature_level}")
 
+    export_progress = ProgressReporter(progress_file, STAGE_ID, steps[-1].id, steps[-1].label)
+    export_progress.record(event_type="step_started", progress=0.0, message="LangSplat export 开始")
     export_cmd = config.to_export_command(
         model_root=f"{JOB_MOUNT}/{runtime.model_relative}",
         output_dir=f"{JOB_MOUNT}/{config.export.output_relative}",
@@ -113,7 +112,7 @@ def run(settings: Settings, paths: JobPaths) -> WorkerResult:
         image=runtime.worker_image,
         command=export_cmd,
         volumes=volumes,
-        environment=model_cache.worker_environment,
+        environment=worker_environment(export_progress),
         label="langsplat export",
     )
 
@@ -142,8 +141,5 @@ def run(settings: Settings, paths: JobPaths) -> WorkerResult:
     ]
     result = WorkerResult(stage_id=STAGE_ID, status="done", artifacts=artifacts)
     write_worker_result(paths.stage_result_file(STAGE_ID), result)
-    append_progress_event(
-        paths.stage_events_file(STAGE_ID),
-        make_progress_event(STAGE_ID, event_type="completed", progress=1.0, message="LangSplat 完成"),
-    )
+    export_progress.record(event_type="completed", progress=1.0, message="LangSplat 完成")
     return result

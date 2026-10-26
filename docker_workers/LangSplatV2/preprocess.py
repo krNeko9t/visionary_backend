@@ -10,6 +10,7 @@ import cv2
 
 from utils.mask_processing import crop_masked_region
 from utils.image_scale import scaled_resolution
+from visionary_progress import ProgressReporter
 
 from dataclasses import dataclass, field
 from typing import Tuple, Type
@@ -109,18 +110,20 @@ class OpenCLIPNetwork(nn.Module):
         processed_input = self.process(input).half()
         return self.model.encode_image(processed_input)
 
-
-
+model: OpenCLIPNetwork
+mask_generator: SamAutomaticMaskGenerator
 
 
 def create(image_list, data_list, save_folder):
     assert image_list is not None, "image_list must be provided to generate features"
+    progress = ProgressReporter.from_env()
     embed_size=512
     seg_maps = []
     total_lengths = []
     timer = 0
     img_embeds = torch.zeros((len(image_list), 300, embed_size))
     seg_maps = torch.zeros((len(image_list), 4, *image_list[0].shape[1:])) 
+    progress.record(completed=0, total=len(image_list), unit="image", message="逐图提取语言特征")
     mask_generator.predictor.model.to('cuda')
 
     for i, img in tqdm(enumerate(image_list), desc="Embedding images", leave=False):
@@ -162,10 +165,12 @@ def create(image_list, data_list, save_folder):
             seg_map_tensor.append(torch.from_numpy(v))
         seg_map = torch.stack(seg_map_tensor, dim=0)
         seg_maps[i] = seg_map
+        progress.record(completed=i + 1, total=len(image_list), unit="image", message=f"已处理图片 {data_list[i]}")
 
     mask_generator.predictor.model.to('cpu')
         
     for i in range(img_embeds.shape[0]):
+        progress.record(message=f"写入图片 {data_list[i]} 的语言特征")
         save_path = os.path.join(save_folder, data_list[i].split('.')[0])
         assert total_lengths[i] == int(seg_maps[i].max() + 1)
         curr = {
@@ -173,6 +178,7 @@ def create(image_list, data_list, save_folder):
             'seg_maps': seg_maps[i]
         }
         sava_numpy(save_path, curr)
+    progress.record(event_type="step_completed", progress=1.0, message="预处理完成")
 
 def sava_numpy(save_path, data):
     save_path_s = save_path + '_s.npy'
@@ -344,7 +350,10 @@ def seed_everything(seed_value):
         torch.backends.cudnn.benchmark = True
 
 
-if __name__ == '__main__':
+def main() -> None:
+    global model, mask_generator
+    progress = ProgressReporter.from_env()
+    progress.record(event_type="step_started", message="初始化预处理")
     seed_num = 42
     seed_everything(seed_num)
 
@@ -361,7 +370,9 @@ if __name__ == '__main__':
     data_list = os.listdir(img_folder)
     data_list.sort()
 
+    progress.record(message="加载 OpenCLIP 模型")
     model = OpenCLIPNetwork(OpenCLIPNetworkConfig)
+    progress.record(message="加载 SAM 模型")
     sam = sam_model_registry["vit_h"](checkpoint=sam_ckpt_path).to('cuda')
     mask_generator = SamAutomaticMaskGenerator(
         model=sam,
@@ -374,6 +385,7 @@ if __name__ == '__main__':
         min_mask_region_area=100,
     )
 
+    progress.record(message="读取并缩放图片")
     img_list = []
     for data_path in data_list:
         image_path = os.path.join(img_folder, data_path)
@@ -390,3 +402,7 @@ if __name__ == '__main__':
     save_folder = os.path.join(dataset_path, 'language_features')
     os.makedirs(save_folder, exist_ok=True)
     create(imgs, data_list, save_folder)
+
+
+if __name__ == '__main__':
+    main()

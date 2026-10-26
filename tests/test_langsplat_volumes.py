@@ -94,6 +94,7 @@ def test_langsplat_stage_shares_writable_model_cache(
     calls: list[dict[str, object]] = []
     observed_starts = []
     observed_iterations = []
+    observed_preprocessing = []
 
     def fake_run_docker_worker(**kwargs):
         calls.append(kwargs)
@@ -106,7 +107,15 @@ def test_langsplat_stage_shares_writable_model_cache(
             environment.setenv("VISIONARY_PROGRESS_FILE", str(paths.stage_events_file("langsplat")))
             reporter = ProgressReporter.from_env()
         assert initial.current_step.id == reporter.step_id
-        if label.startswith("langsplat train"):
+        if label == "langsplat preprocess":
+            reporter.record(event_type="step_started", message="加载 OpenCLIP 模型")
+            for completed in (0, 1, 2):
+                reporter.record(completed=completed, total=2, unit="image", message="逐图提取语言特征")
+                observed_preprocessing.append(query())
+            reporter.record(message="写入语言特征")
+            observed_preprocessing.append(query())
+            reporter.record(event_type="step_completed", progress=1.0, message="预处理完成")
+        elif label.startswith("langsplat train"):
             feature_level = int(label.rsplit("L", 1)[1])
             reporter.record(event_type="step_started", message="加载场景与训练检查点")
             for iteration in (250, 500, 1000):
@@ -141,6 +150,9 @@ def test_langsplat_stage_shares_writable_model_cache(
     assert observed_starts[1].progress == pytest.approx(0.3)
     assert observed_starts[-1].progress == pytest.approx(0.8)
     assert observed_starts[-1].current_step.id == {"name": "export"}
+    assert [body.stages[-1].current_step.completed for body in observed_preprocessing] == [0, 1, 2, 2]
+    assert [body.stages[-1].progress for body in observed_preprocessing] == pytest.approx([0.0, 0.15, 0.3, 0.3])
+    assert observed_preprocessing[1].progress == pytest.approx(86.5789473684)
     for initial in observed_starts:
         assert initial.current_step.completed is None
         assert initial.current_step.total is None
